@@ -8,7 +8,10 @@ st.set_page_config(page_title="Biochemistry Freezer Manager", layout="centered")
 st.title("Freezer Management System")
 
 # --- 2. DATABASE CONNECTION ---
-conn = st.connection("supabase", type=SupabaseConnection)
+conn = st.connection(from supabase import create_client
+url = "https://fhfegywetoavcfwbteye.supabase.co"
+key = "sb_publishable_phs0oKRBj7KBwt4NauMAFw_BttBSqCe"
+conn = create_client(url, key))
 
 def get_users():
     try:
