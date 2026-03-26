@@ -3,65 +3,6 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 
-# --- 1. PAGE SETUP & LIGHT THEME (DARK TEXT) ---
-st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
-
-st.markdown(
-    """
-    <style>
-    /* 1. Main Background - Light Medical Blue */
-    .stApp {
-        background: #f0f2f6;
-    }
-
-    /* 2. Light Panels (Cards) with Dark Text */
-    .stTabs, .stForm, [data-testid="stMetric"], .stDataFrame, [data-testid="stVerticalBlock"] > div > div {
-        background-color: #ffffff !important;
-        padding: 25px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 20px;
-        border: 1px solid #d1d9e6;
-    }
-
-    /* 3. FORCE DARK TEXT EVERYWHERE */
-    h1, h2, h3, h4, h5, h6, label, p, span, .stMarkdown {
-        color: #1a1a1a !important; /* Deep Black/Navy */
-        font-family: 'Segoe UI', Tahoma, sans-serif;
-    }
-
-    /* 4. Sidebar - White with Dark Text */
-    [data-testid="stSidebar"] {
-        background-color: #ffffff !important;
-        border-right: 2px solid #d1d9e6;
-    }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
-        color: #1a1a1a !important;
-    }
-
-    /* 5. Centered Title */
-    h1 {
-        text-align: center;
-        font-weight: 800;
-        padding-bottom: 30px;
-        color: #003366 !important; /* Medical Navy */
-    }
-    
-    /* Input Box Text Color */
-    input {
-        color: #000000 !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-import streamlit as st
-import pandas as pd
-from supabase import create_client
-from datetime import datetime
-
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 st.title("Freezer Management System")
@@ -94,7 +35,7 @@ user_df = get_users()
 USER_LIST = user_df['userid'].tolist() if not user_df.empty else []
 
 # --- 3. SIDEBAR AUTHENTICATION ---
-st.sidebar.header("Lab Authentication")
+st.sidebar.header("Authentication")
 selected_user = st.sidebar.selectbox("Select User ID", ["Select"] + USER_LIST)
 input_pass = st.sidebar.text_input("Enter Password", type="password")
 
