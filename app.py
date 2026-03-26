@@ -3,48 +3,60 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 
-# --- 1. PAGE SETUP & CUSTOM LIGHT THEME ---
+# --- 1. PAGE SETUP & LIGHT THEME (DARK TEXT) ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 
 st.markdown(
     """
     <style>
-    /* Main Background - Soft Medical Blue/Grey Gradient */
+    /* 1. Main Background - Light Medical Blue */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        background-attachment: fixed;
+        background: #f0f2f6;
     }
 
-    /* Clean White Sidebar */
+    /* 2. Light Panels (Cards) with Dark Text */
+    .stTabs, .stForm, [data-testid="stMetric"], .stDataFrame, [data-testid="stVerticalBlock"] > div > div {
+        background-color: #ffffff !important;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+        border: 1px solid #d1d9e6;
+    }
+
+    /* 3. FORCE DARK TEXT EVERYWHERE */
+    h1, h2, h3, h4, h5, h6, label, p, span, .stMarkdown {
+        color: #1a1a1a !important; /* Deep Black/Navy */
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+    }
+
+    /* 4. Sidebar - White with Dark Text */
     [data-testid="stSidebar"] {
         background-color: #ffffff !important;
-        border-right: 1px solid #e0e0e0;
+        border-right: 2px solid #d1d9e6;
+    }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
+        color: #1a1a1a !important;
     }
 
-    /* Content Cards (Tabs and Forms) */
-    .stTabs, .stForm, [data-testid="stMetric"], .stDataFrame {
-        background-color: #ffffff;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-    }
-    
-    /* Centered Professional Title */
+    /* 5. Centered Title */
     h1 {
         text-align: center;
-        color: #2c3e50;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        padding-bottom: 20px;
+        font-weight: 800;
+        padding-bottom: 30px;
+        color: #003366 !important; /* Medical Navy */
+    }
+    
+    /* Input Box Text Color */
+    input {
+        color: #000000 !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-st.markdown("<h1>Freezer Management System</h1>", unsafe_allow_html=True)
 
-# --- 2. DATABASE CONNECTION (Keep your existing connection below this) ---
 import streamlit as st
 import pandas as pd
 from supabase import create_client
