@@ -83,7 +83,7 @@ if selected_user != "Select" and input_pass:
                 b_guide = st.text_input("Guide Name (Biochemistry)")
 
                 st.markdown("---")
-                st.markdown("##### Storage Information")
+                st.markdown("#####  Storage Information")
                 
                 # 1) Select Freezer Type
                 f_type = st.selectbox("Freezer Type", ["-80 Freezer", "-20 Freezer"])
