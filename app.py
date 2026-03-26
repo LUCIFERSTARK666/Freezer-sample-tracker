@@ -55,7 +55,7 @@ if selected_user != "Select" and input_pass:
         if not is_admin:
             u_row = user_data.iloc[0]
             st.sidebar.markdown("---")
-            st.sidebar.write(f"**Primary Guide:** {u_row['guide_name']}")
+            st.sidebar.write(f"**Guide:** {u_row['guide_name']}")
             try:
                 expiry = datetime.strptime(str(u_row['last_date']).strip(), "%Y-%m-%d")
                 days_left = (expiry - datetime.now()).days
@@ -92,6 +92,7 @@ if selected_user != "Select" and input_pass:
                 if f_type == "-80 Freezer":
                     u_opts = ["PhCBI", "Panasonic"]
                 else:
+                    f_type == "-20 Freezer":
                     u_opts = ["ElanPro White (Vertical)", "ElanPro Grey (Horizontal)"]
                 
                 u_name = st.selectbox("Unit Name", u_opts)
