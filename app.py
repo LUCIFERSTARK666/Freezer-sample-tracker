@@ -8,7 +8,6 @@ st.set_page_config(page_title="Biochemistry Freezer Manager", layout="centered")
 st.title("Freezer Management System")
 
 # --- 2. DATABASE CONNECTION (HARD-CODED FOR CLOUD) ---
-# This bypasses the secrets.toml system to fix the ConnectionRefusedError
 url = "https://fhfegywetoavcfwbteye.supabase.co"
 key = "sb_publishable_phs0oKRBj7KBwt4NauMAFw_BttBSqCe"
 
@@ -23,7 +22,6 @@ def get_users():
         res = conn.table("users").select("*").execute()
         return pd.DataFrame(res.data)
     except Exception as e:
-        st.error(f"User Load Error: {e}")
         return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date"])
 
 def get_samples():
@@ -31,7 +29,6 @@ def get_samples():
         res = conn.table("samples").select("*").execute()
         return pd.DataFrame(res.data)
     except Exception as e:
-        st.error(f"Sample Load Error: {e}")
         return pd.DataFrame()
 
 # Load live data
@@ -54,7 +51,7 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
-        # --- DAYS REMAINING LOGIC ---
+        # --- STORAGE EXPIRY LOGIC ---
         if not is_admin:
             u_row = user_data.iloc[0]
             st.sidebar.markdown("---")
@@ -62,7 +59,6 @@ if selected_user != "Select" and input_pass:
             try:
                 expiry = datetime.strptime(str(u_row['last_date']).strip(), "%Y-%m-%d")
                 days_left = (expiry - datetime.now()).days
-                
                 if days_left > 0:
                     st.sidebar.metric("Storage Days Left", f"{days_left} Days")
                 else:
@@ -87,15 +83,19 @@ if selected_user != "Select" and input_pass:
                 b_guide = st.text_input("Guide Name (Biochemistry)")
 
                 st.markdown("---")
-                st.markdown("##### ❄️ Storage Information")
+                st.markdown("##### Storage Information")
+                
+                # 1) Select Freezer Type
                 f_type = st.selectbox("Freezer Type", ["-80 Freezer", "-20 Freezer"])
                 
+                # 2) Logic for Unit Names based on selection
                 if f_type == "-80 Freezer":
                     u_opts = ["PhCBI", "Panasonic"]
                 else:
-                    u_opts = ["Elanpro Horizontal", "Elanpro Vertical"]
+                    u_opts = ["ElanPro White (Vertical)", "ElanPro Grey (Horizontal)"]
                 
                 u_name = st.selectbox("Unit Name", u_opts)
+                
                 s_type = st.text_input("Sample Type (e.g., Serum, Plasma)")
                 col_c, col_d = st.columns(2)
                 box_id = col_c.text_input("Box ID (Required)")
