@@ -3,6 +3,53 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 
+# --- 1. PAGE SETUP & CUSTOM LIGHT THEME ---
+st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    /* Main Background - Soft Medical Blue/Grey Gradient */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background-attachment: fixed;
+    }
+
+    /* Clean White Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        border-right: 1px solid #e0e0e0;
+    }
+
+    /* Content Cards (Tabs and Forms) */
+    .stTabs, .stForm, [data-testid="stMetric"], .stDataFrame {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    
+    /* Centered Professional Title */
+    h1 {
+        text-align: center;
+        color: #2c3e50;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding-bottom: 20px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown("<h1>Freezer Management System</h1>", unsafe_allow_html=True)
+
+# --- 2. DATABASE CONNECTION (Keep your existing connection below this) ---
+import streamlit as st
+import pandas as pd
+from supabase import create_client
+from datetime import datetime
+
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 st.title("Freezer Management System")
@@ -75,7 +122,7 @@ if selected_user != "Select" and input_pass:
 
         # --- TAB 1: LOG SAMPLE ---
         with tab1:
-            st.subheader("New Freezer Entry")
+            st.subheader("New Entry")
             col1, col2 = st.columns(2)
             with col1:
                 f_type = st.selectbox("1. Freezer Type", ["-80 Freezer", "-20 Freezer"])
@@ -84,7 +131,7 @@ if selected_user != "Select" and input_pass:
                 u_name = st.selectbox("2. Unit Name", u_opts)
 
             with st.form("entry_form", clear_on_submit=True):
-                st.markdown("##### 👤 Details")
+                st.markdown("##### Details")
                 col_a, col_b = st.columns(2)
                 u_email = col_a.text_input("Your Email ID")
                 u_phone = col_b.text_input("Your Phone Number")
