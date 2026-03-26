@@ -13,7 +13,7 @@ col1, col2, col3 = st.columns([2, 2, 2])
 with col2:
     st.image(LOGO_URL, width=350) 
 
-st.markdown("<h1 style='text-align: center;'>Biochemistry Freezer Management System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Freezer Management System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-weight: bold;'>Department of Biochemistry | Kasturba Medical College, Manipal</p>", unsafe_allow_html=True)
 st.markdown("---")
 
