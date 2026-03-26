@@ -5,7 +5,7 @@ from datetime import datetime
 
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
-st.title("❄️ Biochemistry Freezer Management System")
+st.title("Freezer Management System")
 
 # --- 2. DATABASE CONNECTION ---
 url = "https://fhfegywetoavcfwbteye.supabase.co"
@@ -81,7 +81,7 @@ if selected_user != "Select" and input_pass:
                 box_id = col_c.text_input("Box ID / Label (Required)")
                 count = col_d.number_input("Total Number of Boxes", min_value=1, step=1)
 
-                if st.form_submit_button("Submit to Cloud"):
+                if st.form_submit_button("Submit"):
                     if box_id and b_guide:
                         log_data = {
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
