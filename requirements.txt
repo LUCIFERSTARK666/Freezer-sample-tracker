@@ -1,0 +1,10 @@
+streamlit
+pandas
+st-supabase-connection
+supabase
+realtime
+storage3
+postgrest
+gotrue
+httpx
+python-dateutil
