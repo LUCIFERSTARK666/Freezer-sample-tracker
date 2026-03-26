@@ -9,7 +9,6 @@ st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 # KMC Logo Link
 LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
 
-# Centered Header
 col1, col2, col3 = st.columns([2, 2, 2])
 with col2:
     st.image(LOGO_URL, width=350) 
@@ -40,7 +39,6 @@ def get_samples():
         res = conn.table("samples").select("*").execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
-            # Ensure timestamp is a datetime object for accurate sorting
             df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
     except:
@@ -80,7 +78,11 @@ if selected_user != "Select" and input_pass:
             except:
                 st.sidebar.info("Expiry date pending.")
 
-        tab1, tab2, tab3 = st.tabs(["📥 Log Sample", "📋 Master Log", "⚙️ Admin Panel"]) if is_admin else st.tabs(["📥 Log Sample", "📋 My History"])
+        # --- THE FIX: SEPARATE TAB DEFINITIONS ---
+        if is_admin:
+            tab1, tab2, tab3 = st.tabs(["📥 Log Sample", "📋 Master Log", "⚙️ Admin Panel"])
+        else:
+            tab1, tab2 = st.tabs(["📥 Log Sample", "📋 My History"])
 
         # --- TAB 1: LOG SAMPLE ---
         with tab1:
@@ -139,7 +141,7 @@ if selected_user != "Select" and input_pass:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label="📥 Download CSV", data=csv, file_name="freezer_log.csv", mime="text/csv")
 
-        # --- TAB 3: ADMIN PANEL (LOGIC UPDATED FOR LATEST ENTRY ONLY) ---
+        # --- TAB 3: ADMIN PANEL ---
         if is_admin:
             with tab3:
                 st.markdown("""<style>div[data-testid="stMetric"] {background-color: #f0f2f6; border: 1px solid #dfe1e5; padding: 15px; border-radius: 10px; text-align: center;}</style>""", unsafe_allow_html=True)
@@ -147,7 +149,6 @@ if selected_user != "Select" and input_pass:
                 
                 all_s = get_samples()
                 if not all_s.empty:
-                    # KEY FIX: Group by userid and take only the row with the maximum (newest) timestamp
                     latest_samples = all_s.sort_values('timestamp').groupby('userid').tail(1)
                     
                     c1, c2, c3 = st.columns(3)
@@ -177,7 +178,6 @@ if selected_user != "Select" and input_pass:
                         st.rerun()
 
                 st.markdown("---")
-                st.write("**Authorized User List:**")
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
     else:
         st.sidebar.error("Invalid credentials.")
