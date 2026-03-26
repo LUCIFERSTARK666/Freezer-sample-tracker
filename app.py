@@ -109,7 +109,7 @@ if selected_user != "Select" and input_pass:
                     else:
                         st.error("Missing required fields.")
 
-        # --- TAB 2: VIEW RECORDS & SEARCH ---
+        # --- TAB 2: VIEW RECORDS, SEARCH & ADMIN EDIT ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -121,7 +121,7 @@ if selected_user != "Select" and input_pass:
                         mask = (view_df['userid'].astype(str).str.lower().str.contains(search_query) | 
                                 view_df['box_id'].astype(str).str.lower().str.contains(search_query))
                         view_df = view_df[mask]
-                    download_label = f"📥 Download Results (CSV)"
+                    download_label = f"📥 Download Master Log (CSV)"
                 else:
                     view_df = df_samples[df_samples['userid'] == selected_user]
                     download_label = "📥 Download My Sample History (CSV)"
@@ -132,30 +132,48 @@ if selected_user != "Select" and input_pass:
                     st.markdown("---")
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label=download_label, data=csv, file_name="freezer_log.csv", mime="text/csv")
+                
+                # --- NEW: ADMIN EDIT SECTION INSIDE TAB 2 ---
+                if is_admin and not view_df.empty:
+                    st.markdown("---")
+                    st.subheader("✏️ Quick Edit Entry (Admin Only)")
+                    edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
+                    selected_edit = st.selectbox("Select entry from above to modify", ["Select"] + edit_options)
+                    
+                    if selected_edit != "Select":
+                        # Match selection back to data
+                        target_row = view_df.iloc[edit_options.index(selected_edit) - 1]
+                        
+                        with st.form("quick_edit_form"):
+                            st.info(f"Modifying entry for {target_row['userid']} ({target_row['timestamp']})")
+                            col_e1, col_e2 = st.columns(2)
+                            new_box = col_e1.text_input("New Box ID", value=target_row['box_id'])
+                            new_count = col_e2.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
+                            new_type = st.text_input("New Sample Type", value=target_row['sample_type'])
+                            
+                            if st.form_submit_button("Save Changes"):
+                                conn.table("samples").update({
+                                    "box_id": new_box, 
+                                    "box_count": new_count, 
+                                    "sample_type": new_type
+                                }).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                st.success("Database Updated!")
+                                st.rerun()
             else:
                 st.info("No data available.")
 
-        # --- TAB 3: ADMIN PANEL ---
+        # --- TAB 3: ADMIN PANEL (USERS & METRICS) ---
         if is_admin:
             with tab3:
-                # --- NEW: FREEZER CAPACITY METRICS ---
                 st.subheader("📊 Freezer Occupancy Summary")
-                df_samples = get_samples()
-                m_col1, m_col2, m_col3 = st.columns(3)
-                
-                if not df_samples.empty:
-                    count_80 = df_samples[df_samples['freezer'] == "-80 Freezer"]['box_count'].sum()
-                    count_20 = df_samples[df_samples['freezer'] == "-20 Freezer"]['box_count'].sum()
-                    total_boxes = df_samples['box_count'].sum()
-                    
-                    m_col1.metric("Total Boxes (-80°C)", f"{int(count_80)}")
-                    m_col2.metric("Total Boxes (-20°C)", f"{int(count_20)}")
-                    m_col3.metric("Grand Total", f"{int(total_boxes)}")
-                else:
-                    st.info("No samples found to calculate metrics.")
+                all_s = get_samples()
+                if not all_s.empty:
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Boxes (-80°C)", int(all_s[all_s['freezer'] == "-80 Freezer"]['box_count'].sum()))
+                    c2.metric("Boxes (-20°C)", int(all_s[all_s['freezer'] == "-20 Freezer"]['box_count'].sum()))
+                    c3.metric("Total Boxes", int(all_s['box_count'].sum()))
                 
                 st.markdown("---")
-                
                 col_left, col_right = st.columns(2)
                 with col_left:
                     st.subheader("Add/Update Student")
@@ -176,27 +194,8 @@ if selected_user != "Select" and input_pass:
                             conn.table("users").delete().eq("userid", user_to_delete).execute()
                             st.rerun()
 
-                # --- EDIT SAMPLE FEATURE ---
                 st.markdown("---")
-                st.subheader("✏️ Edit Sample Entry")
-                if not df_samples.empty:
-                    edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in df_samples.iterrows()]
-                    selected_edit = st.selectbox("Select entry to modify", ["Select"] + edit_options)
-                    
-                    if selected_edit != "Select":
-                        target_row = df_samples.iloc[edit_options.index(selected_edit) - 1]
-                        with st.form("edit_sample_form"):
-                            e_box = st.text_input("Box ID", value=target_row['box_id'])
-                            e_count = st.number_input("Box Count", value=int(target_row['box_count']), min_value=1)
-                            e_type = st.text_input("Sample Type", value=target_row['sample_type'])
-                            
-                            if st.form_submit_button("Update Entry"):
-                                conn.table("samples").update({"box_id": e_box, "box_count": e_count, "sample_type": e_type}).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
-                                st.success("Updated!")
-                                st.rerun()
-
-                st.markdown("---")
-                st.write("Authorized Users:")
+                st.write("Authorized User List:")
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
     else:
         st.sidebar.error("Invalid credentials.")
