@@ -92,7 +92,6 @@ if selected_user != "Select" and input_pass:
                 if f_type == "-80 Freezer":
                     u_opts = ["PhCBI", "Panasonic"]
                 else:
-                    f_type == "-20 Freezer":
                     u_opts = ["ElanPro White (Vertical)", "ElanPro Grey (Horizontal)"]
                 
                 u_name = st.selectbox("Unit Name", u_opts)
