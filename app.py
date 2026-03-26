@@ -78,7 +78,7 @@ if selected_user != "Select" and input_pass:
             except:
                 st.sidebar.info("Expiry date pending.")
 
-        # --- THE FIX: SEPARATE TAB DEFINITIONS ---
+        # Tabs
         if is_admin:
             tab1, tab2, tab3 = st.tabs(["📥 Log Sample", "📋 Master Log", "⚙️ Admin Panel"])
         else:
@@ -120,7 +120,7 @@ if selected_user != "Select" and input_pass:
                     else:
                         st.error("Missing required fields.")
 
-        # --- TAB 2: VIEW RECORDS ---
+        # --- TAB 2: VIEW RECORDS & ADMIN EDIT/DELETE ---
         with tab2:
             all_samples = get_samples()
             if not all_samples.empty:
@@ -135,11 +135,51 @@ if selected_user != "Select" and input_pass:
                 else:
                     view_df = all_samples[all_samples['userid'] == selected_user]
                 
+                # Show the table
                 st.dataframe(view_df.sort_values('timestamp', ascending=False), use_container_width=True)
                 
+                # Download Button
                 if not view_df.empty:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label="📥 Download CSV", data=csv, file_name="freezer_log.csv", mime="text/csv")
+
+                # --- RESTORED: ADMIN EDIT & DELETE LOGIC ---
+                if is_admin and not view_df.empty:
+                    st.markdown("---")
+                    st.subheader("✏️ Manage Entry (Admin Only)")
+                    # Form labels for the dropdown
+                    edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
+                    selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
+                    
+                    if selected_manage != "Select":
+                        target_row = view_df.iloc[edit_options.index(selected_manage) - 1]
+                        st.info(f"Managing: {target_row['userid']} | {target_row['timestamp']}")
+                        
+                        col_edit, col_del = st.columns([2, 1])
+                        
+                        with col_edit:
+                            with st.form("quick_edit_form"):
+                                st.write("**Update Details**")
+                                e_box = st.text_input("New Box ID", value=target_row['box_id'])
+                                e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
+                                e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
+                                if st.form_submit_button("Save Changes"):
+                                    conn.table("samples").update({
+                                        "box_id": e_box, 
+                                        "box_count": e_count, 
+                                        "sample_type": e_type
+                                    }).eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
+                                    st.success("Entry Updated!")
+                                    st.rerun()
+                        
+                        with col_del:
+                            st.write("**Danger Zone**")
+                            if st.button("🗑️ Delete This Entry"):
+                                conn.table("samples").delete().eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
+                                st.warning("Entry Deleted Permanentely!")
+                                st.rerun()
+            else:
+                st.info("No data available.")
 
         # --- TAB 3: ADMIN PANEL ---
         if is_admin:
@@ -182,4 +222,4 @@ if selected_user != "Select" and input_pass:
     else:
         st.sidebar.error("Invalid credentials.")
 else:
-    st.info("👋 Welcome. Please select your User ID in the sidebar to begin.")
+    st.info("Welcome. Please select your User ID in the sidebar to begin.")
