@@ -1,30 +1,37 @@
 import streamlit as st
 import pandas as pd
-from st_supabase_connection import SupabaseConnection
+from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="centered")
 st.title("Freezer Management System")
 
-# --- 2. DATABASE CONNECTION ---
-conn = st.connection(from supabase import create_client
+# --- 2. DATABASE CONNECTION (HARD-CODED FOR CLOUD) ---
+# This bypasses the secrets.toml system to fix the ConnectionRefusedError
 url = "https://fhfegywetoavcfwbteye.supabase.co"
 key = "sb_publishable_phs0oKRBj7KBwt4NauMAFw_BttBSqCe"
-conn = create_client(url, key))
+
+@st.cache_resource
+def init_connection():
+    return create_client(url, key)
+
+conn = init_connection()
 
 def get_users():
     try:
         res = conn.table("users").select("*").execute()
         return pd.DataFrame(res.data)
-    except:
+    except Exception as e:
+        st.error(f"User Load Error: {e}")
         return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date"])
 
 def get_samples():
     try:
         res = conn.table("samples").select("*").execute()
         return pd.DataFrame(res.data)
-    except:
+    except Exception as e:
+        st.error(f"Sample Load Error: {e}")
         return pd.DataFrame()
 
 # Load live data
@@ -47,13 +54,12 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
-        # --- NEW: DAYS REMAINING LOGIC ---
+        # --- DAYS REMAINING LOGIC ---
         if not is_admin:
             u_row = user_data.iloc[0]
             st.sidebar.markdown("---")
             st.sidebar.write(f"**Primary Guide:** {u_row['guide_name']}")
             try:
-                # Calculates days between today and the 'last_date' in Supabase
                 expiry = datetime.strptime(str(u_row['last_date']).strip(), "%Y-%m-%d")
                 days_left = (expiry - datetime.now()).days
                 
@@ -84,14 +90,12 @@ if selected_user != "Select" and input_pass:
                 st.markdown("##### ❄️ Storage Information")
                 f_type = st.selectbox("Freezer Type", ["-80 Freezer", "-20 Freezer"])
                 
-                # --- NEW: UPDATED FREEZER MODELS ---
                 if f_type == "-80 Freezer":
                     u_opts = ["PhCBI", "Panasonic"]
                 else:
                     u_opts = ["Elanpro Horizontal", "Elanpro Vertical"]
                 
                 u_name = st.selectbox("Unit Name", u_opts)
-                
                 s_type = st.text_input("Sample Type (e.g., Serum, Plasma)")
                 col_c, col_d = st.columns(2)
                 box_id = col_c.text_input("Box ID (Required)")
@@ -108,6 +112,7 @@ if selected_user != "Select" and input_pass:
                         conn.table("samples").insert(log_data).execute()
                         st.success("Entry Secured in Database!")
                         st.balloons()
+                        st.rerun()
                     else:
                         st.error("Box ID and Guide Name are required.")
 
@@ -144,6 +149,6 @@ if selected_user != "Select" and input_pass:
                 st.markdown("---")
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
     else:
-        st.error("Wrong Password.")
+        st.sidebar.error("Wrong Password.")
 else:
-    st.info("Please log in to enter freezer data.")
+    st.info("Please log in from the sidebar to enter freezer data.")
