@@ -3,9 +3,20 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 
-# --- 1. PAGE SETUP ---
+# --- 1. PAGE SETUP & MAHE LOGO ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
-st.title("Freezer Management System")
+
+# MAHE Logo Link provided
+LOGO_URL = "https://www.manipal.edu/content/dam/manipal/mu/mcops-manipal/Images_new/MAHE_Color%20%E2%80%93%20Footer.svg"
+
+# Layout for Top Left Logo and Title
+col_logo, col_title = st.columns([1, 8])
+with col_logo:
+    # Adjusted width for SVG scaling
+    st.image(LOGO_URL, width=120)
+with col_title:
+    st.title("Biochemistry Freezer Management System")
+    st.markdown("**Department of Biochemistry | Kasturba Medical College, Manipal**")
 
 # --- 2. DATABASE CONNECTION ---
 url = "https://fhfegywetoavcfwbteye.supabase.co"
@@ -47,7 +58,7 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
-        # --- DAYS REMAINING LOGIC ---
+        # --- EXPIRY NOTIFICATION FOR STUDENTS ---
         if not is_admin:
             u_row = user_data.iloc[0]
             st.sidebar.markdown("---")
@@ -56,10 +67,9 @@ if selected_user != "Select" and input_pass:
             try:
                 expiry_str = str(u_row['last_date']).strip()
                 expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
-                today = datetime.now().date()
-                days_left = (expiry_date - today).days
+                days_left = (expiry_date - datetime.now().date()).days
                 if days_left > 30:
-                    st.sidebar.metric("Storage Days Left", f"{days_left} Days")
+                    st.sidebar.metric("Storage Days Left", f"{days_left}")
                 elif 0 <= days_left <= 30:
                     st.sidebar.warning(f"⚠️ Only {days_left} days remaining!")
                 else:
@@ -75,7 +85,7 @@ if selected_user != "Select" and input_pass:
 
         # --- TAB 1: LOG SAMPLE ---
         with tab1:
-            st.subheader("New Entry")
+            st.subheader("New Freezer Entry")
             col1, col2 = st.columns(2)
             with col1:
                 f_type = st.selectbox("1. Freezer Type", ["-80 Freezer", "-20 Freezer"])
@@ -109,7 +119,7 @@ if selected_user != "Select" and input_pass:
                     else:
                         st.error("Missing required fields.")
 
-        # --- TAB 2: VIEW RECORDS, SEARCH & ADMIN EDIT ---
+        # --- TAB 2: VIEW RECORDS, SEARCH & ADMIN EDIT/DELETE ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -133,31 +143,30 @@ if selected_user != "Select" and input_pass:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label=download_label, data=csv, file_name="freezer_log.csv", mime="text/csv")
                 
-                # --- NEW: ADMIN EDIT SECTION INSIDE TAB 2 ---
+                # ADMIN ACTIONS (EDIT/DELETE)
                 if is_admin and not view_df.empty:
                     st.markdown("---")
-                    st.subheader("✏️ Quick Edit Entry (Admin Only)")
+                    st.subheader("✏️ Manage Entry (Admin Only)")
                     edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
-                    selected_edit = st.selectbox("Select entry from above to modify", ["Select"] + edit_options)
+                    selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
                     
-                    if selected_edit != "Select":
-                        # Match selection back to data
-                        target_row = view_df.iloc[edit_options.index(selected_edit) - 1]
-                        
-                        with st.form("quick_edit_form"):
-                            st.info(f"Modifying entry for {target_row['userid']} ({target_row['timestamp']})")
-                            col_e1, col_e2 = st.columns(2)
-                            new_box = col_e1.text_input("New Box ID", value=target_row['box_id'])
-                            new_count = col_e2.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
-                            new_type = st.text_input("New Sample Type", value=target_row['sample_type'])
-                            
-                            if st.form_submit_button("Save Changes"):
-                                conn.table("samples").update({
-                                    "box_id": new_box, 
-                                    "box_count": new_count, 
-                                    "sample_type": new_type
-                                }).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
-                                st.success("Database Updated!")
+                    if selected_manage != "Select":
+                        target_row = view_df.iloc[edit_options.index(selected_manage) - 1]
+                        st.info(f"Managing: {target_row['userid']} | {target_row['timestamp']}")
+                        c_edit, c_del = st.columns([2, 1])
+                        with c_edit:
+                            with st.form("quick_edit_form"):
+                                e_box = st.text_input("New Box ID", value=target_row['box_id'])
+                                e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
+                                e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
+                                if st.form_submit_button("Save Changes"):
+                                    conn.table("samples").update({"box_id": e_box, "box_count": e_count, "sample_type": e_type}).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                    st.success("Updated!")
+                                    st.rerun()
+                        with c_del:
+                            if st.button("🗑️ Delete This Entry"):
+                                conn.table("samples").delete().eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                st.warning("Deleted!")
                                 st.rerun()
             else:
                 st.info("No data available.")
@@ -189,15 +198,17 @@ if selected_user != "Select" and input_pass:
                     st.subheader("Remove Student")
                     student_list = [u for u in USER_LIST if u != "Admin"]
                     user_to_delete = st.selectbox("Select Student to Delete", ["Select"] + student_list)
-                    if user_to_delete != "Select":
-                        if st.button("Confirm Permanent Deletion"):
-                            conn.table("users").delete().eq("userid", user_to_delete).execute()
-                            st.rerun()
+                    if user_to_delete != "Select" and st.button("Confirm Permanent Deletion"):
+                        conn.table("users").delete().eq("userid", user_to_delete).execute()
+                        st.rerun()
 
                 st.markdown("---")
-                st.write("Authorized User List:")
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
     else:
         st.sidebar.error("Invalid credentials.")
 else:
-    st.info("Please select your User ID in the sidebar.")
+    st.info(" Welcome. Please select your User ID in the sidebar to begin.")
+
+# --- FOOTER ---
+st.markdown("---")
+st.markdown("<p style='text-align: center; color: grey;'>Biochemistry Freezer Management System v2.0 | PhD Research Project Support</p>", unsafe_allow_html=True)
