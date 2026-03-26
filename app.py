@@ -159,3 +159,48 @@ if selected_user != "Select" and input_pass:
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
     else:
         st.sidebar.error("Invalid credentials.")
+        # --- NEW: EDIT ENTRY SECTION ---
+                st.markdown("---")
+                st.subheader("✏️ Edit Existing Entry")
+                
+                df_samples = get_samples()
+                if not df_samples.empty:
+                    # Create a list of labels for the dropdown (Timestamp + User + Box ID)
+                    sample_labels = [
+                        f"{row['timestamp']} | {row['userid']} | Box: {row['box_id']}" 
+                        for _, row in df_samples.iterrows()
+                    ]
+                    
+                    selected_label = st.selectbox("Select Entry to Edit", ["Select Entry"] + sample_labels)
+                    
+                    if selected_label != "Select Entry":
+                        # Get the original row index
+                        idx = sample_labels.index(selected_label)
+                        target_row = df_samples.iloc[idx]
+                        
+                        st.info(f"Editing entry for {target_row['userid']} logged on {target_row['timestamp']}")
+                        
+                        with st.form("edit_form"):
+                            col_e1, col_e2 = st.columns(2)
+                            new_box = col_e1.text_input("Update Box ID", value=str(target_row['box_id']))
+                            new_count = col_e2.number_input("Update Box Count", value=int(target_row['box_count']), min_value=1)
+                            
+                            new_type = st.text_input("Update Sample Type", value=str(target_row['sample_type']))
+                            new_guide = st.text_input("Update Biochem Guide", value=str(target_row['biochem_guide']))
+                            
+                            if st.form_submit_button("Save Changes to Database"):
+                                try:
+                                    # Update Supabase using the unique timestamp and userid as the filter
+                                    conn.table("samples").update({
+                                        "box_id": new_box,
+                                        "box_count": new_count,
+                                        "sample_type": new_type,
+                                        "biochem_guide": new_guide
+                                    }).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                    
+                                    st.success("Changes saved successfully!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error updating entry: {e}")
+                else:
+                    st.write("No samples available to edit.")
