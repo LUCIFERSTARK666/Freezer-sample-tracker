@@ -50,6 +50,30 @@ if selected_user != "Select" and input_pass:
 
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
+        # --- NEW: DAYS REMAINING LOGIC (Paste this part) ---
+        if not is_admin:
+            u_row = user_data.iloc[0]
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("📌 Storage Status")
+            st.sidebar.write(f"**Primary Guide:** {u_row['guide_name']}")
+            
+            try:
+                # Convert the date string from database to a Python date
+                expiry_str = str(u_row['last_date']).strip()
+                expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+                today = datetime.now().date()
+                
+                days_left = (expiry_date - today).days
+                
+                if days_left > 30:
+                    st.sidebar.metric("Storage Days Left", f"{days_left} Days")
+                elif 0 <= days_left <= 30:
+                    st.sidebar.warning(f"⚠️ Only {days_left} days remaining!")
+                else:
+                    st.sidebar.error(f"❌ Storage Expired ({abs(days_left)} days ago)")
+            except Exception as e:
+                st.sidebar.info("Expiry date not set or format error.")
+        # --- END OF DAYS REMAINING LOGIC ---
         
         if is_admin:
             tab1, tab2, tab3 = st.tabs(["📥 Log Sample", "📋 Master Log", "⚙️ Admin Panel"])
