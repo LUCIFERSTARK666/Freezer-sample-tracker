@@ -3,16 +3,15 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 
-# --- 1. PAGE SETUP & MAHE LOGO ---
+# --- 1. PAGE SETUP & KMC LOGO ---
 st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 
-# MAHE Logo Link provided
-LOGO_URL = "https://www.manipal.edu/content/dam/manipal/mu/mcops-manipal/Images_new/MAHE_Color%20%E2%80%93%20Footer.svg"
+# Updated Logo Link (KMC Logo)
+LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
 
 # Layout for Top Left Logo and Title
 col_logo, col_title = st.columns([1, 8])
 with col_logo:
-    # Adjusted width for SVG scaling
     st.image(LOGO_URL, width=120)
 with col_title:
     st.title("Biochemistry Freezer Management System")
@@ -58,7 +57,6 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
-        # --- EXPIRY NOTIFICATION FOR STUDENTS ---
         if not is_admin:
             u_row = user_data.iloc[0]
             st.sidebar.markdown("---")
@@ -69,7 +67,7 @@ if selected_user != "Select" and input_pass:
                 expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
                 days_left = (expiry_date - datetime.now().date()).days
                 if days_left > 30:
-                    st.sidebar.metric("Storage Days Left", f"{days_left}")
+                    st.sidebar.metric("Storage Days Left", f"{days_left} Days")
                 elif 0 <= days_left <= 30:
                     st.sidebar.warning(f"⚠️ Only {days_left} days remaining!")
                 else:
@@ -104,7 +102,7 @@ if selected_user != "Select" and input_pass:
                 box_id = col_c.text_input("Box ID / Label (Required)")
                 count = col_d.number_input("Total Number of Boxes", min_value=1, step=1)
 
-                if st.form_submit_button("Submit to Cloud"):
+                if st.form_submit_button("Submit"):
                     if box_id and b_guide:
                         log_data = {
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -143,7 +141,6 @@ if selected_user != "Select" and input_pass:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label=download_label, data=csv, file_name="freezer_log.csv", mime="text/csv")
                 
-                # ADMIN ACTIONS (EDIT/DELETE)
                 if is_admin and not view_df.empty:
                     st.markdown("---")
                     st.subheader("✏️ Manage Entry (Admin Only)")
@@ -207,8 +204,8 @@ if selected_user != "Select" and input_pass:
     else:
         st.sidebar.error("Invalid credentials.")
 else:
-    st.info(" Welcome. Please select your User ID in the sidebar to begin.")
+    st.info("Welcome. Please select your User ID and password in the sidebar to begin.")
 
 # --- FOOTER ---
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: grey;'>Biochemistry Freezer Management System v2.0 | PhD Research Project Support</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: grey;'>Biochemistry Freezer Management System</p>", unsafe_allow_html=True)
