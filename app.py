@@ -4,7 +4,7 @@ from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP & KMC LOGO ---
-st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
+st.set_page_config(page_title=" Freezer Manager", layout="wide")
 
 # KMC Logo Link
 LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
@@ -13,7 +13,7 @@ col1, col2, col3 = st.columns([2, 2, 2])
 with col2:
     st.image(LOGO_URL, width=350) 
 
-st.markdown("<h1 style='text-align: center;'>Biochemistry Freezer Management System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Freezer Management System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-weight: bold;'>Department of Biochemistry | Kasturba Medical College, Manipal</p>", unsafe_allow_html=True)
 st.markdown("---")
 
@@ -105,7 +105,7 @@ if selected_user != "Select" and input_pass:
                 box_id = col_c.text_input("Box ID / Label (Required)")
                 count = col_d.number_input("Total Number of Boxes", min_value=1, step=1)
 
-                if st.form_submit_button("Submit to Cloud"):
+                if st.form_submit_button("Submit"):
                     if box_id and b_guide:
                         log_data = {
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
