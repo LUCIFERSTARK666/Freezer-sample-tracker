@@ -73,7 +73,6 @@ if selected_user != "Select" and input_pass:
         else:
             tab1, tab2 = st.tabs(["📥 Log Sample", "📋 My History"])
 
-        # --- TAB 1 & 2 (Logic remains same) ---
         with tab1:
             st.subheader("New Freezer Entry")
             f_type = st.selectbox("1. Freezer Type", ["-80 Freezer", "-20 Freezer"])
@@ -100,9 +99,10 @@ if selected_user != "Select" and input_pass:
                     st.markdown("---")
                     st.subheader("✏️ Manage Individual Entry")
                     edit_opts = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
-                    to_manage = st.selectbox("Select entry", ["Select"] + edit_opts)
-                    if to_manage != "Select":
-                        row = view_df.iloc[edit_options.index(to_manage) - 1]
+                    selected_manage = st.selectbox("Select entry", ["Select"] + edit_opts)
+                    if selected_manage != "Select":
+                        target_idx = edit_opts.index(selected_manage)
+                        row = view_df.iloc[target_idx - 1]
                         c1, c2 = st.columns([2, 1])
                         with c1:
                             with st.form("edit_form"):
@@ -116,7 +116,6 @@ if selected_user != "Select" and input_pass:
                                 st.rerun()
             else: st.info("No data available.")
 
-        # --- TAB 3: ADMIN PANEL ---
         if is_admin:
             with tab3:
                 st.markdown("""<style>div[data-testid="stMetric"] {background-color: #f0f2f6; border: 1px solid #dfe1e5; padding: 15px; border-radius: 10px; text-align: center;}</style>""", unsafe_allow_html=True)
@@ -146,16 +145,21 @@ if selected_user != "Select" and input_pass:
 
                 # --- STEALTH PURGE FEATURE ---
                 st.markdown("<br><br><br>", unsafe_allow_html=True)
-                # This period "." is the secret button
-                if st.button(".", help="Advanced Settings"):
+                st.markdown("""<style>div.stButton > button:first-child[aria-label="."] { background-color: transparent; border: none; color: #f0f2f6; }</style>""", unsafe_allow_html=True)
+                
+                if st.button("."):
                     st.warning("🚨 Master Log Purge Tool Activated")
-                    step1 = st.checkbox("First Confirmation: I understand this clears ALL sample data.")
-                    if step1:
-                        step2 = st.checkbox("Second Confirmation: I have downloaded a backup CSV.")
-                        if step2:
-                            if st.button("🔥 PERMANENTLY WIPE DATABASE"):
-                                conn.table("samples").delete().neq("userid", "null").execute()
-                                st.error("Database Cleared.")
-                                st.rerun()
+                    confirm_code = st.text_input("Enter Purge Password", type="password")
+                    if confirm_code == "!@#$%^&*":
+                        step1 = st.checkbox("First Confirmation: Clear ALL sample data.")
+                        if step1:
+                            step2 = st.checkbox("Second Confirmation: Backup has been made.")
+                            if step2:
+                                if st.button("🔥 PERMANENTLY WIPE DATABASE"):
+                                    conn.table("samples").delete().gte("box_count", 0).execute()
+                                    st.error("Database Cleared.")
+                                    st.rerun()
+                    elif confirm_code:
+                        st.error("Incorrect Purge Password.")
     else: st.sidebar.error("Invalid credentials.")
 else: st.info("Please log in.")
