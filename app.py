@@ -36,6 +36,7 @@ def get_users():
 
 def get_samples():
     try:
+        # We fetch 'id' as well to ensure precise Deletion/Editing
         res = conn.table("samples").select("*").execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
@@ -49,7 +50,6 @@ USER_LIST = user_df['userid'].tolist() if not user_df.empty else []
 
 # --- 3. SIDEBAR AUTHENTICATION ---
 st.sidebar.header("Authentication")
-
 selected_user = st.sidebar.selectbox("Select User ID", ["Select"] + USER_LIST)
 input_pass = st.sidebar.text_input("Enter Password", type="password")
 
@@ -153,6 +153,7 @@ if selected_user != "Select" and input_pass:
                     selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
                     
                     if selected_manage != "Select":
+                        # Match the selected string back to the row
                         idx = edit_options.index(selected_manage)
                         target_row = view_df.iloc[idx]
                         
@@ -166,6 +167,7 @@ if selected_user != "Select" and input_pass:
                                 e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
                                 e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
                                 if st.form_submit_button("Save Changes"):
+                                    # Use 'id' if available, otherwise filter by multiple fields
                                     query = conn.table("samples").update({
                                         "box_id": e_box, 
                                         "box_count": e_count, 
@@ -241,21 +243,24 @@ if selected_user != "Select" and input_pass:
         st.sidebar.error("Invalid credentials.")
 else:
     st.info("👋 Welcome. Please select your User ID in the sidebar to begin.")
+# --- COPY AND PASTE THIS AT THE VERY BOTTOM OF YOUR SCRIPT ---
 
-# --- 5. STICKY BOTTOM HELP BUTTON ---
-st.sidebar.markdown("---")
-# Push to bottom
+st.sidebar.markdown("---")  # Adds a visual separator
+
+# This loop creates empty space to push the button to the bottom
 for _ in range(15):
     st.sidebar.write("")
 
+# The Help Popover Logic
 with st.sidebar.popover("Help"):
     st.markdown("### Support & Queries")
     st.write("Please enter your User ID so we can assist you better:")
     
-    # Dynamic capture of the user ID within the popover
-    help_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01")
+    # Step 1: User types their ID
+    help_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01", key="help_id_input")
     
     if help_user_id:
+        # Step 2: Button appears only after ID is entered
         help_email = "biochem@manipal.edu"
         subject = "Freezer%20System%20Support%20Request"
         body = f"Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A%0A---%0AUser%20ID:%20{help_user_id}%0A---"
