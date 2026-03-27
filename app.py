@@ -36,7 +36,6 @@ def get_users():
 
 def get_samples():
     try:
-        # We fetch 'id' as well to ensure precise Deletion/Editing
         res = conn.table("samples").select("*").execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
@@ -48,8 +47,23 @@ def get_samples():
 user_df = get_users()
 USER_LIST = user_df['userid'].tolist() if not user_df.empty else []
 
-# --- 3. SIDEBAR AUTHENTICATION ---
+# --- 3. SIDEBAR AUTHENTICATION & SUPPORT ---
 st.sidebar.header("Authentication")
+
+# --- NEW SUPPORT SECTION START ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("🆘 Need Help?")
+help_email = "biochem@manipal.edu"
+st.sidebar.caption("For login issues or storage queries:")
+st.sidebar.markdown(
+    f'<a href="mailto:{help_email}?subject=Freezer%20System%20Support&body=Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A" '
+    f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #d9534f; '
+    f'border-radius: 0.5rem; text-decoration: none; font-size: 14px; font-weight: bold;">📧 Email biochem@manipal.edu</a>',
+    unsafe_allow_html=True
+)
+st.sidebar.markdown("---")
+# --- NEW SUPPORT SECTION END ---
+
 selected_user = st.sidebar.selectbox("Select User ID", ["Select"] + USER_LIST)
 input_pass = st.sidebar.text_input("Enter Password", type="password")
 
@@ -153,7 +167,6 @@ if selected_user != "Select" and input_pass:
                     selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
                     
                     if selected_manage != "Select":
-                        # Match the selected string back to the row
                         idx = edit_options.index(selected_manage)
                         target_row = view_df.iloc[idx]
                         
@@ -167,7 +180,6 @@ if selected_user != "Select" and input_pass:
                                 e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
                                 e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
                                 if st.form_submit_button("Save Changes"):
-                                    # Use 'id' if available, otherwise filter by multiple fields
                                     query = conn.table("samples").update({
                                         "box_id": e_box, 
                                         "box_count": e_count, 
