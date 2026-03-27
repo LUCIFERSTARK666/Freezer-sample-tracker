@@ -48,7 +48,7 @@ user_df = get_users()
 USER_LIST = user_df['userid'].tolist() if not user_df.empty else []
 
 # --- 3. SIDEBAR AUTHENTICATION ---
-st.sidebar.header("🔐 Lab Authentication")
+st.sidebar.header("Authentication")
 selected_user = st.sidebar.selectbox("Select User ID", ["Select"] + USER_LIST)
 input_pass = st.sidebar.text_input("Enter Password", type="password")
 
@@ -173,7 +173,7 @@ if selected_user != "Select" and input_pass:
                                     st.rerun()
                         
                         with col_del:
-                            st.write("**Danger Zone**")
+                            st.write("**   **")
                             if st.button("🗑️ Delete This Entry"):
                                 conn.table("samples").delete().eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
                                 st.warning("Entry Deleted Permanentely!")
