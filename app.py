@@ -51,6 +51,26 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
+        # --- STORAGE STATUS FOR STUDENTS ---
+        if not is_admin:
+            u_row = user_data.iloc[0]
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("Storage Status")
+            st.sidebar.write(f"**Primary Guide:** {u_row['guide_name']}")
+            try:
+                expiry_str = str(u_row['last_date']).strip()
+                expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+                today = datetime.now().date()
+                days_left = (expiry_date - today).days
+                if days_left > 30:
+                    st.sidebar.metric("Storage Days Left", f"{days_left} Days")
+                elif 0 <= days_left <= 30:
+                    st.sidebar.warning(f"⚠️ Only {days_left} days remaining!")
+                else:
+                    st.sidebar.error(f"❌ Storage Expired ({abs(days_left)} days ago)")
+            except:
+                st.sidebar.info("Expiry date pending.")
+
         # --- TAB NAVIGATION ---
         if is_admin:
             tab1, tab2, tab3, tab4 = st.tabs(["📥 Log Sample", "📋 Master Log", "📊 Analytics", "⚙️ Admin Panel"])
@@ -60,71 +80,145 @@ if selected_user != "Select" and input_pass:
         # --- TAB 1: LOG SAMPLE ---
         with tab1:
             st.subheader("New Entry")
-            with st.form("entry_form", clear_on_submit=True):
-                f_type = st.selectbox("Freezer Type", ["-80 Freezer", "-20 Freezer"])
-                u_name = st.selectbox("Unit Name", ["PhCBI", "Panasonic"] if f_type == "-80 Freezer" else ["ElanPro White", "ElanPro Grey"])
-                b_guide = st.text_input("Guide Name (Biochemistry)")
-                box_id = st.text_input("Box ID / Label")
-                count = st.number_input("Total Number of Boxes", min_value=1)
-                if st.form_submit_button("Submit"):
-                    log_data = {
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "userid": selected_user, "biochem_guide": b_guide,
-                        "freezer": f_type, "unit": u_name, "box_id": box_id, "box_count": int(count)
-                    }
-                    conn.table("samples").insert(log_data).execute()
-                    st.cache_resource.clear()
-                    st.success("Log Saved!")
-                    st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                f_type = st.selectbox("1. Freezer Type", ["-80 Freezer", "-20 Freezer"])
+            with col2:
+                u_opts = ["PhCBI", "Panasonic"] if f_type == "-80 Freezer" else ["ElanPro White (Vertical)", "ElanPro Grey (Horizontal)"]
+                u_name = st.selectbox("2. Unit Name", u_opts)
 
-        # --- TAB 2: MASTER LOG (THE LOST SECTION) ---
+            with st.form("entry_form", clear_on_submit=True):
+                st.markdown("##### Details")
+                col_a, col_b = st.columns(2)
+                u_email = col_a.text_input("Your Email ID")
+                u_phone = col_b.text_input("Your Phone Number")
+                b_guide = st.text_input("Guide Name (Biochemistry)")
+                s_type = st.text_input("Sample Type")
+                col_c, col_d = st.columns(2)
+                box_id = col_c.text_input("Box ID / Label (Required)")
+                count = col_d.number_input("Total Number of Boxes", min_value=1, step=1)
+
+                if st.form_submit_button("Submit to Cloud"):
+                    if box_id and b_guide:
+                        log_data = {
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "userid": selected_user, "email": u_email, "phone": u_phone,
+                            "biochem_guide": b_guide, "freezer": f_type, "unit": u_name,
+                            "sample_type": s_type, "box_id": box_id, "box_count": int(count)
+                        }
+                        conn.table("samples").insert(log_data).execute()
+                        st.cache_resource.clear()
+                        st.success(f"Saved to {u_name}!")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("Missing required fields.")
+
+        # --- TAB 2: VIEW RECORDS & SEARCH ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
                 if is_admin:
-                    st.subheader("Master Log (All Users)")
-                    search = st.text_input("Search Box/User ID").lower()
+                    st.markdown("##### 🔎 Admin Search & Filter")
+                    search_query = st.text_input("Search by User ID or Box ID", "").lower()
                     view_df = df_samples
-                    if search:
-                        view_df = df_samples[df_samples['box_id'].str.lower().contains(search) | df_samples['userid'].str.lower().contains(search)]
+                    if search_query:
+                        mask = (view_df['userid'].astype(str).str.lower().str.contains(search_query) | 
+                                view_df['box_id'].astype(str).str.lower().str.contains(search_query))
+                        view_df = view_df[mask]
                 else:
-                    st.subheader("My Sample History")
                     view_df = df_samples[df_samples['userid'] == selected_user]
                 
                 st.dataframe(view_df.sort_values('timestamp', ascending=False), use_container_width=True)
-                csv = view_df.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Download Log (CSV)", csv, "freezer_log.csv", "text/csv")
+                
+                if not view_df.empty:
+                    csv = view_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(label="📥 Download Log (CSV)", data=csv, file_name="freezer_log.csv", mime="text/csv")
+                
+                # Admin Edit Section
+                if is_admin and not view_df.empty:
+                    st.markdown("---")
+                    st.subheader("✏️ Quick Edit Entry")
+                    edit_opts = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
+                    selected_edit = st.selectbox("Select entry to modify", ["Select"] + edit_opts)
+                    if selected_edit != "Select":
+                        target_row = view_df.iloc[edit_opts.index(selected_edit) - 1]
+                        with st.form("edit_form"):
+                            new_box = st.text_input("New Box ID", value=target_row['box_id'])
+                            new_count = st.number_input("New Count", value=int(target_row['box_count']), min_value=1)
+                            if st.form_submit_button("Save Changes"):
+                                conn.table("samples").update({"box_id": new_box, "box_count": new_count}).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                st.cache_resource.clear()
+                                st.success("Updated!")
+                                st.rerun()
             else:
-                st.info("No logs found in the database.")
+                st.info("No data available.")
 
-        # --- TAB 3: ANALYTICS ---
+        # --- TAB 3: ANALYTICS (NEW FEATURE) ---
         if is_admin:
             with tab3:
-                st.subheader("📊 Graphical View")
+                st.subheader("📊 Graphical Storage Representation")
                 all_s = get_samples()
                 if not all_s.empty:
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.write("Occupancy by Freezer")
-                        st.bar_chart(all_s.groupby('freezer')['box_count'].sum())
-                    with c2:
-                        st.write("User-wise Distribution")
-                        st.bar_chart(all_s.groupby('userid')['box_count'].sum())
+                    # Key Metrics
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Boxes (-80°C)", int(all_s[all_s['freezer'] == "-80 Freezer"]['box_count'].sum()))
+                    c2.metric("Boxes (-20°C)", int(all_s[all_s['freezer'] == "-20 Freezer"]['box_count'].sum()))
+                    c3.metric("Total Boxes", int(all_s['box_count'].sum()))
+                    
+                    st.markdown("---")
+                    col_chart1, col_chart2 = st.columns(2)
+                    
+                    with col_chart1:
+                        st.write("**Total Occupancy by Freezer Type**")
+                        freezer_chart = all_s.groupby('freezer')['box_count'].sum()
+                        st.bar_chart(freezer_chart)
+                        
+                    with col_chart2:
+                        st.write("**User-wise Box Distribution**")
+                        user_chart = all_s.groupby('userid')['box_count'].sum().sort_values(ascending=False)
+                        st.bar_chart(user_chart)
+                else:
+                    st.info("No data available for graphical representation.")
 
         # --- TAB 4: ADMIN PANEL ---
         if is_admin:
             with tab4:
-                st.subheader("User Management")
+                st.subheader("⚙️ User Management")
+                col_left, col_right = st.columns(2)
+                with col_left:
+                    st.subheader("Add Student")
+                    with st.form("add_user"):
+                        n_id, n_pw, n_gd, n_ex = st.text_input("User ID"), st.text_input("Password"), st.text_input("Guide"), st.date_input("Expiry")
+                        if st.form_submit_button("Authorize"):
+                            conn.table("users").upsert({"userid": n_id, "password": n_pw, "guide_name": n_gd, "last_date": str(n_ex)}).execute()
+                            st.cache_resource.clear()
+                            st.rerun()
+                with col_right:
+                    st.subheader("Remove Student")
+                    student_list = [u for u in USER_LIST if u != "Admin"]
+                    user_to_del = st.selectbox("Select to Delete", ["Select"] + student_list)
+                    if user_to_del != "Select" and st.button("Delete Permanently"):
+                        conn.table("users").delete().eq("userid", user_to_del).execute()
+                        st.cache_resource.clear()
+                        st.rerun()
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
+
     else:
         st.sidebar.error("Invalid credentials.")
 else:
-    st.info("Please login to access the logs.")
+    st.info("Please select your User ID in the sidebar.")
 
-# --- HELP POPOVER ---
+# --- 4. STICKY BOTTOM HELP BUTTON ---
 st.sidebar.markdown("---")
-for _ in range(15): st.sidebar.write("")
+for _ in range(15): st.sidebar.write("") # Push to bottom
+
 with st.sidebar.popover("Help"):
-    h_id = st.text_input("User ID for Support")
-    if h_id:
-        st.markdown(f'<a href="mailto:biochem@manipal.edu?subject=Support&body=User:{h_id}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Email Support</a>', unsafe_allow_html=True)
+    st.markdown("### Support & Queries")
+    h_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01", key="help_id_input")
+    if h_user_id:
+        h_email = "biochem@manipal.edu"
+        body = f"Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A%0A---%0AUser%20ID:%20{h_user_id}%0A---"
+        st.markdown(f'<a href="mailto:{h_email}?subject=Support&body={body}" style="display:inline-block;padding:0.5em 1em;color:white;background-color:#4f8bf9;border-radius:0.5rem;text-decoration:none;font-weight:bold;width:100%;text-align:center;">📧 Email Support</a>', unsafe_allow_html=True)
+    else:
+        st.caption("Provide your ID above to enable the email button.")
