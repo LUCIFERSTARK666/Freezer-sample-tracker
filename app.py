@@ -36,6 +36,7 @@ def get_users():
 
 def get_samples():
     try:
+        # We fetch 'id' as well to ensure precise Deletion/Editing
         res = conn.table("samples").select("*").execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
@@ -91,8 +92,7 @@ if selected_user != "Select" and input_pass:
             with col1:
                 f_type = st.selectbox("1. Freezer Type", ["-80 Freezer", "-20 Freezer"])
             with col2:
-                u_opts = ["PhCBI", "Panasonic"] if f_type == "-80 Freezer" else ["ElanPro White (Vertical)", "ElanPro Grey (Horizontal)"]
-                u_name = st.selectbox("2. Unit Name", u_opts)
+                u_name = st.selectbox("2. Unit Name", ["PhCBI", "Panasonic"] if f_type == "-80 Freezer" else ["ElanPro White (Vertical)", "ElanPro Grey (Horizontal)"])
 
             with st.form("entry_form", clear_on_submit=True):
                 st.markdown("##### Details")
@@ -108,12 +108,13 @@ if selected_user != "Select" and input_pass:
                 if st.form_submit_button("Submit to Cloud"):
                     if box_id and b_guide:
                         log_data = {
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "userid": selected_user, "email": u_email, "phone": u_phone,
                             "biochem_guide": b_guide, "freezer": f_type, "unit": u_name,
                             "sample_type": s_type, "box_id": box_id, "box_count": int(count)
                         }
                         conn.table("samples").insert(log_data).execute()
+                        st.cache_resource.clear()
                         st.success(f"Saved to {u_name}!")
                         st.balloons()
                         st.rerun()
@@ -143,18 +144,20 @@ if selected_user != "Select" and input_pass:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label="📥 Download CSV", data=csv, file_name="freezer_log.csv", mime="text/csv")
 
-                # --- RESTORED: ADMIN EDIT & DELETE LOGIC ---
+                # --- ADMIN EDIT & DELETE LOGIC ---
                 if is_admin and not view_df.empty:
                     st.markdown("---")
                     st.subheader("✏️ Manage Entry (Admin Only)")
-                    # Form labels for the dropdown
+                    
                     edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
                     selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
                     
                     if selected_manage != "Select":
-                        target_row = view_df.iloc[edit_options.index(selected_manage) - 1]
-                        st.info(f"Managing: {target_row['userid']} | {target_row['timestamp']}")
+                        # Match the selected string back to the row
+                        idx = edit_options.index(selected_manage)
+                        target_row = view_df.iloc[idx]
                         
+                        st.info(f"Managing: {target_row['userid']} | {target_row['timestamp']}")
                         col_edit, col_del = st.columns([2, 1])
                         
                         with col_edit:
@@ -164,19 +167,34 @@ if selected_user != "Select" and input_pass:
                                 e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
                                 e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
                                 if st.form_submit_button("Save Changes"):
-                                    conn.table("samples").update({
+                                    # Use 'id' if available, otherwise filter by multiple fields
+                                    query = conn.table("samples").update({
                                         "box_id": e_box, 
                                         "box_count": e_count, 
                                         "sample_type": e_type
-                                    }).eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
+                                    })
+                                    
+                                    if 'id' in target_row:
+                                        query.eq("id", target_row['id']).execute()
+                                    else:
+                                        query.eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
+                                    
+                                    st.cache_resource.clear()
                                     st.success("Entry Updated!")
                                     st.rerun()
                         
                         with col_del:
-                            st.write("**   **")
+                            st.write("** **")
                             if st.button("🗑️ Delete This Entry"):
-                                conn.table("samples").delete().eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
-                                st.warning("Entry Deleted Permanentely!")
+                                query_del = conn.table("samples").delete()
+                                
+                                if 'id' in target_row:
+                                    query_del.eq("id", target_row['id']).execute()
+                                else:
+                                    query_del.eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
+                                
+                                st.cache_resource.clear()
+                                st.warning("Entry Deleted Permanently!")
                                 st.rerun()
             else:
                 st.info("No data available.")
@@ -208,6 +226,7 @@ if selected_user != "Select" and input_pass:
                         n_id, n_pw, n_gd, n_ex = st.text_input("User ID"), st.text_input("Pass"), st.text_input("Guide"), st.date_input("Expiry")
                         if st.form_submit_button("Authorize"):
                             conn.table("users").upsert({"userid": n_id, "password": n_pw, "guide_name": n_gd, "last_date": str(n_ex)}).execute()
+                            st.cache_resource.clear()
                             st.rerun()
                 with col_right:
                     st.subheader("Remove Student")
@@ -215,6 +234,7 @@ if selected_user != "Select" and input_pass:
                     user_to_delete = st.selectbox("Select to Delete", ["Select"] + student_list)
                     if user_to_delete != "Select" and st.button("Confirm Deletion"):
                         conn.table("users").delete().eq("userid", user_to_delete).execute()
+                        st.cache_resource.clear()
                         st.rerun()
 
                 st.markdown("---")
