@@ -90,11 +90,13 @@ if selected_user != "Select" and input_pass:
                         st.success("Entry Logged!")
                         st.rerun()
 
+        # --- TAB 2: MASTER LOG & STEALTH PURGE ---
         with tab2:
             all_samples = get_samples()
             if not all_samples.empty:
                 view_df = all_samples if is_admin else all_samples[all_samples['userid'] == selected_user]
                 st.dataframe(view_df.sort_values('timestamp', ascending=False), use_container_width=True)
+                
                 if is_admin:
                     st.markdown("---")
                     st.subheader("✏️ Manage Individual Entry")
@@ -114,6 +116,24 @@ if selected_user != "Select" and input_pass:
                             if st.button("🗑️ Delete Entry"):
                                 conn.table("samples").delete().eq("timestamp", str(row['timestamp'])).eq("userid", row['userid']).execute()
                                 st.rerun()
+
+                    # --- STEALTH PURGE FEATURE (NOW IN TAB 2) ---
+                    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+                    st.markdown("""<style>div.stButton > button:first-child[aria-label="."] { background-color: transparent; border: none; color: #f0f2f6; }</style>""", unsafe_allow_html=True)
+                    
+                    if st.button("."):
+                        st.warning("🚨 Master Log Purge Tool Activated")
+                        confirm_code = st.text_input("Enter Purge Password", type="password")
+                        if confirm_code == "!@#$%^&*":
+                            step1 = st.checkbox("Confirm: Delete ALL sample records from cloud storage.")
+                            if step1:
+                                if st.button("🔥 PERMANENTLY WIPE DATABASE"):
+                                    # New robust filter to delete all: Match everything that isn't a fake ID
+                                    conn.table("samples").delete().neq("box_id", "DELETION_PHANTOM_ID").execute()
+                                    st.error("Master Log Cleared Successfully.")
+                                    st.rerun()
+                        elif confirm_code:
+                            st.error("Invalid Code.")
             else: st.info("No data available.")
 
         if is_admin:
@@ -142,24 +162,7 @@ if selected_user != "Select" and input_pass:
                     if to_del != "Select" and st.button("Confirm Removal"):
                         conn.table("users").delete().eq("userid", to_del).execute()
                         st.rerun()
-
-                # --- STEALTH PURGE FEATURE ---
-                st.markdown("<br><br><br>", unsafe_allow_html=True)
-                st.markdown("""<style>div.stButton > button:first-child[aria-label="."] { background-color: transparent; border: none; color: #f0f2f6; }</style>""", unsafe_allow_html=True)
-                
-                if st.button("."):
-                    st.warning("🚨 Master Log Purge Tool Activated")
-                    confirm_code = st.text_input("Enter Purge Password", type="password")
-                    if confirm_code == "!@#$%^&*":
-                        step1 = st.checkbox("First Confirmation: Clear ALL sample data.")
-                        if step1:
-                            step2 = st.checkbox("Second Confirmation: Backup has been made.")
-                            if step2:
-                                if st.button("🔥 PERMANENTLY WIPE DATABASE"):
-                                    conn.table("samples").delete().gte("box_count", 0).execute()
-                                    st.error("Database Cleared.")
-                                    st.rerun()
-                    elif confirm_code:
-                        st.error("Incorrect Purge Password.")
+                st.markdown("---")
+                st.table(user_df[['userid', 'guide_name', 'last_date']])
     else: st.sidebar.error("Invalid credentials.")
 else: st.info("Please log in.")
