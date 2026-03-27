@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from supabase import create_client
@@ -134,7 +133,7 @@ if selected_user != "Select" and input_pass:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label=download_label, data=csv, file_name="freezer_log.csv", mime="text/csv")
                 
-                # --- NEW: ADMIN EDIT SECTION INSIDE TAB 2 ---
+                # --- ADMIN EDIT SECTION INSIDE TAB 2 ---
                 if is_admin and not view_df.empty:
                     st.markdown("---")
                     st.subheader("✏️ Quick Edit Entry (Admin Only)")
@@ -142,7 +141,6 @@ if selected_user != "Select" and input_pass:
                     selected_edit = st.selectbox("Select entry from above to modify", ["Select"] + edit_options)
                     
                     if selected_edit != "Select":
-                        # Match selection back to data
                         target_row = view_df.iloc[edit_options.index(selected_edit) - 1]
                         
                         with st.form("quick_edit_form"):
@@ -202,3 +200,31 @@ if selected_user != "Select" and input_pass:
         st.sidebar.error("Invalid credentials.")
 else:
     st.info("Please select your User ID in the sidebar.")
+
+# --- 4. STICKY BOTTOM HELP BUTTON ---
+st.sidebar.markdown("---")
+
+# Push the button to the bottom
+for _ in range(15):
+    st.sidebar.write("")
+
+with st.sidebar.popover("Help"):
+    st.markdown("### Support & Queries")
+    st.write("Please enter your User ID so we can assist you better:")
+    
+    # User types their ID inside the popover
+    help_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01", key="help_id_input")
+    
+    if help_user_id:
+        help_email = "biochem@manipal.edu"
+        subject = "Freezer%20System%20Support%20Request"
+        body = f"Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A%0A---%0AUser%20ID:%20{help_user_id}%0A---"
+        
+        st.markdown(
+            f'<a href="mailto:{help_email}?subject={subject}&body={body}" '
+            f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #4f8bf9; '
+            f'border-radius: 0.5rem; text-decoration: none; font-weight: bold; width: 100%; text-align: center;">📧 Send Email Now</a>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.caption("Provide your ID above to enable the email button.")
