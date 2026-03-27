@@ -53,7 +53,6 @@ st.sidebar.header("Authentication")
 selected_user = st.sidebar.selectbox("Select User ID", ["Select"] + USER_LIST)
 input_pass = st.sidebar.text_input("Enter Password", type="password")
 
-# --- 4. LOGIN LOGIC ---
 if selected_user != "Select" and input_pass:
     is_admin = (selected_user == "Admin" and input_pass == "Biochem000")
     user_data = user_df[user_df['userid'] == selected_user]
@@ -245,17 +244,27 @@ else:
 
 # --- 5. STICKY BOTTOM HELP BUTTON ---
 st.sidebar.markdown("---")
-# Pushing the help button to the bottom using empty lines
+# Push to bottom
 for _ in range(15):
     st.sidebar.write("")
 
 with st.sidebar.popover("Help"):
     st.markdown("### Support & Queries")
-    st.write("Facing trouble logging in or have storage questions?")
-    help_email = "biochem@manipal.edu"
-    st.markdown(
-        f'<a href="mailto:{help_email}?subject=Freezer%20System%20Support&body=Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A" '
-        f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #4f8bf9; '
-        f'border-radius: 0.5rem; text-decoration: none; font-weight: bold; width: 100%; text-align: center;">📧 Email Support</a>',
-        unsafe_allow_html=True
-    )
+    st.write("Please enter your User ID so we can assist you better:")
+    
+    # Dynamic capture of the user ID within the popover
+    help_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01")
+    
+    if help_user_id:
+        help_email = "biochem@manipal.edu"
+        subject = "Freezer%20System%20Support%20Request"
+        body = f"Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A%0A---%0AUser%20ID:%20{help_user_id}%0A---"
+        
+        st.markdown(
+            f'<a href="mailto:{help_email}?subject={subject}&body={body}" '
+            f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #4f8bf9; '
+            f'border-radius: 0.5rem; text-decoration: none; font-weight: bold; width: 100%; text-align: center;">📧 Send Email Now</a>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.caption("Provide your ID above to enable the email button.")
