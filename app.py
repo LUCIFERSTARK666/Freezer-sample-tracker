@@ -38,8 +38,7 @@ def get_samples():
     try:
         res = conn.table("samples").select("*").execute()
         df = pd.DataFrame(res.data)
-        if not df.empty:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+        # We keep the raw data for precise database matching later
         return df
     except:
         return pd.DataFrame()
@@ -135,7 +134,7 @@ if selected_user != "Select" and input_pass:
                 else:
                     view_df = all_samples[all_samples['userid'] == selected_user]
                 
-                # Show the table
+                # Show the table (sorted by newest first)
                 st.dataframe(view_df.sort_values('timestamp', ascending=False), use_container_width=True)
                 
                 # Download Button
@@ -143,41 +142,54 @@ if selected_user != "Select" and input_pass:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label="📥 Download CSV", data=csv, file_name="freezer_log.csv", mime="text/csv")
 
-                # --- RESTORED: ADMIN EDIT & DELETE LOGIC ---
+                # --- ADMIN EDIT & DELETE LOGIC ---
                 if is_admin and not view_df.empty:
                     st.markdown("---")
                     st.subheader("✏️ Manage Entry (Admin Only)")
-                    # Form labels for the dropdown
+                    
+                    # Create precise labels for the dropdown
                     edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
                     selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
                     
                     if selected_manage != "Select":
-                        target_row = view_df.iloc[edit_options.index(selected_manage) - 1]
-                        st.info(f"Managing: {target_row['userid']} | {target_row['timestamp']}")
+                        # Get the raw index from the original dataframe to ensure we have the exact timestamp string
+                        target_index = edit_options.index(selected_manage)
+                        target_row = view_df.iloc[target_index]
+                        
+                        # Store exact timestamp as a string to avoid matching errors
+                        exact_ts = str(target_row['timestamp'])
+                        
+                        st.info(f"Managing: {target_row['userid']} | {target_row['box_id']}")
                         
                         col_edit, col_del = st.columns([2, 1])
                         
                         with col_edit:
                             with st.form("quick_edit_form"):
                                 st.write("**Update Details**")
-                                e_box = st.text_input("New Box ID", value=target_row['box_id'])
+                                e_box = st.text_input("New Box ID", value=str(target_row['box_id']))
                                 e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
-                                e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
+                                e_type = st.text_input("New Sample Type", value=str(target_row['sample_type']))
+                                
                                 if st.form_submit_button("Save Changes"):
+                                    # Use exact timestamp and userid to match the row
                                     conn.table("samples").update({
                                         "box_id": e_box, 
                                         "box_count": e_count, 
                                         "sample_type": e_type
-                                    }).eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
+                                    }).eq("timestamp", exact_ts).eq("userid", target_row['userid']).execute()
                                     st.success("Entry Updated!")
                                     st.rerun()
                         
                         with col_del:
-                            st.write("**Danger Zone**")
-                            if st.button("🗑️ Delete This Entry"):
-                                conn.table("samples").delete().eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
-                                st.warning("Entry Deleted Permanentely!")
-                                st.rerun()
+                            st.write("**   **")
+                            # Added a unique key to the button to prevent refresh issues
+                            if st.button("🗑️ Delete This Entry", key="del_btn"):
+                                try:
+                                    conn.table("samples").delete().eq("timestamp", exact_ts).eq("userid", target_row['userid']).execute()
+                                    st.warning("Entry Deleted Permanently!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
             else:
                 st.info("No data available.")
 
@@ -185,11 +197,13 @@ if selected_user != "Select" and input_pass:
         if is_admin:
             with tab3:
                 st.markdown("""<style>div[data-testid="stMetric"] {background-color: #f0f2f6; border: 1px solid #dfe1e5; padding: 15px; border-radius: 10px; text-align: center;}</style>""", unsafe_allow_html=True)
-                st.subheader("📊 Freezer Occupancy Summary (Latest per Student)")
+                st.subheader("📊 Freezer Occupancy Summary ")
                 
                 all_s = get_samples()
                 if not all_s.empty:
-                    latest_samples = all_s.sort_values('timestamp').groupby('userid').tail(1)
+                    # Sort and group to get the latest entry for metrics
+                    all_s_sorted = all_s.sort_values('timestamp')
+                    latest_samples = all_s_sorted.groupby('userid').tail(1)
                     
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Boxes (-80°C)", int(latest_samples[latest_samples['freezer'] == "-80 Freezer"]['box_count'].sum()))
