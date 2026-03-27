@@ -4,7 +4,7 @@ from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP & KMC LOGO ---
-st.set_page_config(page_title=" Freezer Manager", layout="wide")
+st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 
 # KMC Logo Link
 LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
@@ -13,7 +13,7 @@ col1, col2, col3 = st.columns([2, 2, 2])
 with col2:
     st.image(LOGO_URL, width=350) 
 
-st.markdown("<h1 style='text-align: center;'>Freezer Management System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Biochemistry Freezer Management System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-weight: bold;'>Department of Biochemistry | Kasturba Medical College, Manipal</p>", unsafe_allow_html=True)
 st.markdown("---")
 
@@ -36,7 +36,6 @@ def get_users():
 
 def get_samples():
     try:
-        # We fetch 'id' as well to ensure precise Deletion/Editing
         res = conn.table("samples").select("*").execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
@@ -125,6 +124,7 @@ if selected_user != "Select" and input_pass:
         with tab2:
             all_samples = get_samples()
             if not all_samples.empty:
+                # 1. Logic for filtering view
                 if is_admin:
                     st.markdown("##### 🔎 Admin Search & Filter")
                     search_query = st.text_input("Search by User ID or Box ID", "").lower()
@@ -136,15 +136,15 @@ if selected_user != "Select" and input_pass:
                 else:
                     view_df = all_samples[all_samples['userid'] == selected_user]
                 
-                # Show the table
+                # 2. Display the DataFrame
                 st.dataframe(view_df.sort_values('timestamp', ascending=False), use_container_width=True)
                 
-                # Download Button
+                # 3. Download CSV
                 if not view_df.empty:
                     csv = view_df.to_csv(index=False).encode('utf-8')
                     st.download_button(label="📥 Download CSV", data=csv, file_name="freezer_log.csv", mime="text/csv")
 
-                # --- ADMIN EDIT & DELETE LOGIC ---
+                # 4. Admin Management (Edit/Delete)
                 if is_admin and not view_df.empty:
                     st.markdown("---")
                     st.subheader("✏️ Manage Entry (Admin Only)")
@@ -153,7 +153,6 @@ if selected_user != "Select" and input_pass:
                     selected_manage = st.selectbox("Select entry to Edit or Delete", ["Select"] + edit_options)
                     
                     if selected_manage != "Select":
-                        # Match the selected string back to the row
                         idx = edit_options.index(selected_manage)
                         target_row = view_df.iloc[idx]
                         
@@ -167,13 +166,11 @@ if selected_user != "Select" and input_pass:
                                 e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
                                 e_type = st.text_input("New Sample Type", value=target_row['sample_type'])
                                 if st.form_submit_button("Save Changes"):
-                                    # Use 'id' if available, otherwise filter by multiple fields
                                     query = conn.table("samples").update({
                                         "box_id": e_box, 
                                         "box_count": e_count, 
                                         "sample_type": e_type
                                     })
-                                    
                                     if 'id' in target_row:
                                         query.eq("id", target_row['id']).execute()
                                     else:
@@ -187,17 +184,16 @@ if selected_user != "Select" and input_pass:
                             st.write("** **")
                             if st.button("🗑️ Delete This Entry"):
                                 query_del = conn.table("samples").delete()
-                                
                                 if 'id' in target_row:
                                     query_del.eq("id", target_row['id']).execute()
                                 else:
                                     query_del.eq("timestamp", str(target_row['timestamp'])).eq("userid", target_row['userid']).execute()
                                 
                                 st.cache_resource.clear()
-                                st.warning("Entry Deleted Permanently!")
+                                st.warning("Entry Deleted!")
                                 st.rerun()
             else:
-                st.info("No data available.")
+                st.info("No records found in the database.")
 
         # --- TAB 3: ADMIN PANEL ---
         if is_admin:
@@ -243,28 +239,20 @@ if selected_user != "Select" and input_pass:
         st.sidebar.error("Invalid credentials.")
 else:
     st.info("👋 Welcome. Please select your User ID in the sidebar to begin.")
-# --- COPY AND PASTE THIS AT THE VERY BOTTOM OF YOUR SCRIPT ---
 
-st.sidebar.markdown("---")  # Adds a visual separator
-
-# This loop creates empty space to push the button to the bottom
+# --- HELP POPOVER (Bottom of Sidebar) ---
+st.sidebar.markdown("---")
 for _ in range(15):
     st.sidebar.write("")
 
-# The Help Popover Logic
 with st.sidebar.popover("Help"):
     st.markdown("### Support & Queries")
     st.write("Please enter your User ID so we can assist you better:")
-    
-    # Step 1: User types their ID
     help_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01", key="help_id_input")
-    
     if help_user_id:
-        # Step 2: Button appears only after ID is entered
         help_email = "biochem@manipal.edu"
         subject = "Freezer%20System%20Support%20Request"
         body = f"Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A%0A---%0AUser%20ID:%20{help_user_id}%0A---"
-        
         st.markdown(
             f'<a href="mailto:{help_email}?subject={subject}&body={body}" '
             f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #4f8bf9; '
