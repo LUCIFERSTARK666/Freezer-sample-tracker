@@ -47,25 +47,13 @@ def get_samples():
 user_df = get_users()
 USER_LIST = user_df['userid'].tolist() if not user_df.empty else []
 
-# --- 3. SIDEBAR AUTHENTICATION & HELP POPOVER ---
+# --- 3. SIDEBAR AUTHENTICATION ---
 st.sidebar.header("Authentication")
-
-# --- NEW HELP POPOVER SECTION ---
-with st.sidebar.popover("❓ Help"):
-    st.markdown("### Support & Queries")
-    st.write("Facing trouble logging in or have storage questions?")
-    help_email = "biochem@manipal.edu"
-    st.markdown(
-        f'<a href="mailto:{help_email}?subject=Freezer%20System%20Support&body=Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A" '
-        f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #4f8bf9; '
-        f'border-radius: 0.5rem; text-decoration: none; font-weight: bold; width: 100%; text-align: center;">📧 Email biochem@manipal.edu</a>',
-        unsafe_allow_html=True
-    )
-st.sidebar.markdown("---")
 
 selected_user = st.sidebar.selectbox("Select User ID", ["Select"] + USER_LIST)
 input_pass = st.sidebar.text_input("Enter Password", type="password")
 
+# --- 4. LOGIN LOGIC ---
 if selected_user != "Select" and input_pass:
     is_admin = (selected_user == "Admin" and input_pass == "Biochem000")
     user_data = user_df[user_df['userid'] == selected_user]
@@ -254,3 +242,20 @@ if selected_user != "Select" and input_pass:
         st.sidebar.error("Invalid credentials.")
 else:
     st.info("👋 Welcome. Please select your User ID in the sidebar to begin.")
+
+# --- 5. STICKY BOTTOM HELP BUTTON ---
+st.sidebar.markdown("---")
+# Pushing the help button to the bottom using empty lines
+for _ in range(15):
+    st.sidebar.write("")
+
+with st.sidebar.popover("Help"):
+    st.markdown("### Support & Queries")
+    st.write("Facing trouble logging in or have storage questions?")
+    help_email = "biochem@manipal.edu"
+    st.markdown(
+        f'<a href="mailto:{help_email}?subject=Freezer%20System%20Support&body=Hello%20Team,%0A%0AI%20am%20facing%20the%20following%20issue:%0A" '
+        f'style="display: inline-block; padding: 0.5em 1em; color: white; background-color: #4f8bf9; '
+        f'border-radius: 0.5rem; text-decoration: none; font-weight: bold; width: 100%; text-align: center;">📧 Email Support</a>',
+        unsafe_allow_html=True
+    )
