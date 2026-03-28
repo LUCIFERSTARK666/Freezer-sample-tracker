@@ -4,7 +4,7 @@ from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP & KMC LOGO ---
-st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
+st.set_page_config(page_title="Freezer Manager", layout="wide")
 
 # Centering the KMC Logo at the top
 LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
