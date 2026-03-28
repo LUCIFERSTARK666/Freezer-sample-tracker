@@ -27,7 +27,7 @@ def init_connection():
 
 conn = init_connection()
 
-# --- 3. DATA FETCHING (Ensuring Real-time Updates) ---
+# --- 3. DATA FETCHING ---
 def get_users():
     try:
         res = conn.table("users").select("*").execute()
@@ -112,14 +112,14 @@ if selected_user != "Select" and input_pass:
                 
                 st.dataframe(view_df.sort_values('timestamp', ascending=False) if 'timestamp' in view_df.columns else view_df, use_container_width=True)
                 
-                # Download
+                # Download Button
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download Log (CSV)", csv, "freezer_log.csv", "text/csv")
 
-                # ADMIN DUAL EDIT/DELETE
+                # --- ADMIN MANAGE: EDIT & DELETE ---
                 if is_admin and not view_df.empty:
                     st.markdown("---")
-                    st.subheader("⚙️ Manage Entries (Edit All Details / Delete)")
+                    st.subheader("⚙️ Manage Entries (Admin Only)")
                     manage_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
                     selected_entry = st.selectbox("Select entry to modify/remove", ["Select"] + manage_options)
                     
@@ -129,7 +129,7 @@ if selected_user != "Select" and input_pass:
                         
                         col_edit, col_del = st.columns([2, 1])
                         with col_edit:
-                            with st.form("admin_edit_full"):
+                            with st.form("admin_edit_full_form"):
                                 st.write("**✏️ Edit All Details**")
                                 e_box = st.text_input("Box ID", value=target_row['box_id'])
                                 e_count = st.number_input("Box Count", value=int(target_row['box_count']), min_value=1)
@@ -144,9 +144,11 @@ if selected_user != "Select" and input_pass:
                                     }).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
                                     st.cache_resource.clear()
                                     st.rerun()
+                        
                         with col_del:
-                            st.write("**🗑️ Delete Entry**")
-                            if st.button("Confirm Permanent Deletion"):
+                            st.write("**🗑️ Remove Record**")
+                            st.error("Caution: Permanent Deletion")
+                            if st.button("Confirm Delete Permanently"):
                                 conn.table("samples").delete().eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
                                 st.cache_resource.clear()
                                 st.rerun()
@@ -178,7 +180,7 @@ if selected_user != "Select" and input_pass:
                 col_add, col_rem = st.columns(2)
                 with col_add:
                     st.markdown("##### Authorize/Update Student")
-                    with st.form("auth_student"):
+                    with st.form("auth_student_form"):
                         n_id = st.text_input("User ID")
                         n_pw = st.text_input("Password")
                         n_gd = st.text_input("Primary Guide")
@@ -200,12 +202,12 @@ if selected_user != "Select" and input_pass:
     else: st.sidebar.error("Invalid credentials.")
 else: st.info("Please login in the sidebar to begin.")
 
-# --- 5. HELP POPOVER (SUBJECT LINE & DRAFTED MAIL) ---
+# --- 5. HELP POPOVER (USER ID & DRAFTED MAIL) ---
 st.sidebar.markdown("---")
 for _ in range(15): st.sidebar.write("")
 with st.sidebar.popover("Help"):
     st.write("### Support")
-    h_uid = st.text_input("Enter User ID", key="help_uid")
+    h_uid = st.text_input("Enter User ID", key="help_uid_input")
     if h_uid:
         subject = urllib.parse.quote(f"Freezer storage issue _ {h_uid}")
         body = urllib.parse.quote(f"Hello Team,\n\nI am facing an issue with the freezer storage system. My User ID is {h_uid}.\n\nDetails of the problem:\n")
