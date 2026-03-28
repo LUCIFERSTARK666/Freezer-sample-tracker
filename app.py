@@ -72,7 +72,6 @@ if selected_user != "Select" and input_pass:
                 st.markdown("##### Details")
                 u_email = st.text_input("Your Email ID")
                 b_guide = st.text_input("Guide Name (Biochemistry)")
-                s_type = st.text_input("Sample Type")
                 box_id = st.text_input("Box ID / Label (Required)")
                 count = st.number_input("Total Number of Boxes", min_value=1, step=1)
 
@@ -82,14 +81,14 @@ if selected_user != "Select" and input_pass:
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                             "userid": selected_user, "email": u_email,
                             "biochem_guide": b_guide, "freezer": f_type, "unit": u_name,
-                            "sample_type": s_type, "box_id": box_id, "box_count": int(count)
+                            "box_id": box_id, "box_count": int(count)
                         }
                         conn.table("samples").insert(log_data).execute()
                         st.cache_resource.clear()
                         st.success("Log Saved!")
                         st.rerun()
 
-        # --- TAB 2: MASTER LOG (WITH DUAL EDIT/DELETE OPTION) ---
+        # --- TAB 2: MASTER LOG (EDIT/DELETE LOGS) ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -110,46 +109,28 @@ if selected_user != "Select" and input_pass:
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download Log (CSV)", csv, "freezer_log.csv", "text/csv")
 
-                # --- THE DUAL ADMIN OPTION SECTION ---
+                # ADMIN DUAL EDIT/DELETE LOG ENTRIES
                 if is_admin and not view_df.empty:
                     st.markdown("---")
-                    st.subheader("⚙️ Manage Entry (Edit or Delete)")
-                    
+                    st.subheader("⚙️ Manage Log Entries")
                     manage_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
-                    selected_entry = st.selectbox("Select an entry to manage", ["Select"] + manage_options)
-                    
+                    selected_entry = st.selectbox("Select a log to edit/delete", ["Select"] + manage_options)
                     if selected_entry != "Select":
                         idx = manage_options.index(selected_entry)
                         target_row = view_df.iloc[idx - 1]
-                        
-                        col_edit, col_del = st.columns([2, 1])
-                        
-                        # OPTION A: EDIT DETAILS
-                        with col_edit:
-                            with st.form("admin_edit_entry"):
-                                st.write("**✏️ Edit Details**")
-                                edit_box = st.text_input("Box ID", value=target_row['box_id'])
-                                edit_count = st.number_input("Box Count", value=int(target_row['box_count']), min_value=1)
-                                edit_type = st.text_input("Sample Type", value=target_row['sample_type'] if 'sample_type' in target_row else "")
-                                
-                                if st.form_submit_button("Save Changes"):
-                                    conn.table("samples").update({
-                                        "box_id": edit_box, 
-                                        "box_count": edit_count,
-                                        "sample_type": edit_type
-                                    }).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                        c_edit, c_del = st.columns([2, 1])
+                        with c_edit:
+                            with st.form("edit_log_form"):
+                                e_box = st.text_input("Edit Box ID", value=target_row['box_id'])
+                                e_count = st.number_input("Edit Count", value=int(target_row['box_count']), min_value=1)
+                                if st.form_submit_button("Update Log"):
+                                    conn.table("samples").update({"box_id": e_box, "box_count": e_count}).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
                                     st.cache_resource.clear()
-                                    st.success("Entry Updated!")
                                     st.rerun()
-
-                        # OPTION B: DELETE ENTRY
-                        with col_del:
-                            st.write("**🗑️ Delete Entry**")
-                            st.error("Caution: This cannot be undone.")
-                            if st.button("Confirm Permanent Deletion"):
+                        with c_del:
+                            if st.button("🗑️ Delete Log Entry"):
                                 conn.table("samples").delete().eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
                                 st.cache_resource.clear()
-                                st.warning("Entry Removed!")
                                 st.rerun()
             else:
                 st.info("No logs found.")
@@ -161,10 +142,37 @@ if selected_user != "Select" and input_pass:
                 if not df_samples.empty:
                     st.bar_chart(df_samples.groupby('userid')['box_count'].sum())
 
-        # --- TAB 4: ADMIN PANEL ---
+        # --- TAB 4: ADMIN PANEL (RESTORED USER AUTHORIZATION) ---
         if is_admin:
             with tab4:
-                st.subheader("⚙️ User Management")
+                st.subheader("👤 User Access Management")
+                col_left, col_right = st.columns(2)
+                
+                with col_left:
+                    st.markdown("##### Add/Update Student")
+                    with st.form("add_user_form"):
+                        n_id = st.text_input("Student User ID")
+                        n_pw = st.text_input("Set Password")
+                        n_gd = st.text_input("Primary Guide Name")
+                        n_ex = st.date_input("Storage Expiry Date")
+                        if st.form_submit_button("Authorize Student"):
+                            conn.table("users").upsert({"userid": n_id, "password": n_pw, "guide_name": n_gd, "last_date": str(n_ex)}).execute()
+                            st.cache_resource.clear()
+                            st.success(f"User {n_id} Authorized!")
+                            st.rerun()
+                
+                with col_right:
+                    st.markdown("##### Remove Access")
+                    student_only = [u for u in USER_LIST if u != "Admin"]
+                    user_to_del = st.selectbox("Select Student to Remove", ["Select"] + student_only)
+                    if user_to_del != "Select" and st.button("Confirm Permanent Removal"):
+                        conn.table("users").delete().eq("userid", user_to_del).execute()
+                        st.cache_resource.clear()
+                        st.warning(f"User {user_to_del} removed.")
+                        st.rerun()
+                
+                st.markdown("---")
+                st.write("**Authorized User List:**")
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
 
     else:
