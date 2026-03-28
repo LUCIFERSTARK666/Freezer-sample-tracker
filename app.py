@@ -4,7 +4,7 @@ from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP ---
-st.set_page_config(page_title= Freezer Manager", layout="wide")
+st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
 st.title("Freezer Management System")
 
 # --- 2. DATABASE CONNECTION ---
@@ -16,20 +16,7 @@ def init_connection():
     return create_client(url, key)
 
 conn = init_connection()
-# --- COPY AND PASTE THIS SECTION ---
 
-# 1. Define the KMC Logo URL
-LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
-
-# 2. Create columns to center the logo
-col1, col2, col3 = st.columns([2, 2, 2])
-with col2:
-    st.image(LOGO_URL, width=350) 
-
-# 3. Add the centered titles
-st.markdown("<h1 style='text-align: center;'>Biochemistry Freezer Management System</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-weight: bold;'>Department of Biochemistry | Kasturba Medical College, Manipal</p>", unsafe_allow_html=True)
-st.markdown("---")
 def get_users():
     try:
         res = conn.table("users").select("*").execute()
