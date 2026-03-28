@@ -6,7 +6,6 @@ from datetime import datetime
 # --- 1. PAGE SETUP & KMC LOGO ---
 st.set_page_config(page_title="Freezer Manager", layout="wide")
 
-# Centering the Logo at the top
 LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
 c1, c2, c3 = st.columns([2, 2, 2])
 with c2:
@@ -56,7 +55,7 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
-        # Tabs - Admin gets Analytics, Students get My History
+        # Tabs Logic
         if is_admin:
             tab1, tab2, tab3, tab4 = st.tabs(["📥 Log Sample", "📋 Master Log", "📊 Analytics", "⚙️ Admin Panel"])
         else:
@@ -73,6 +72,7 @@ if selected_user != "Select" and input_pass:
                 st.markdown("##### Details")
                 u_email = st.text_input("Your Email ID")
                 b_guide = st.text_input("Guide Name (Biochemistry)")
+                s_type = st.text_input("Sample Type")
                 box_id = st.text_input("Box ID / Label (Required)")
                 count = st.number_input("Total Number of Boxes", min_value=1, step=1)
 
@@ -82,13 +82,14 @@ if selected_user != "Select" and input_pass:
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                             "userid": selected_user, "email": u_email,
                             "biochem_guide": b_guide, "freezer": f_type, "unit": u_name,
-                            "box_id": box_id, "box_count": int(count)
+                            "sample_type": s_type, "box_id": box_id, "box_count": int(count)
                         }
                         conn.table("samples").insert(log_data).execute()
+                        st.cache_resource.clear()
                         st.success("Log Saved!")
                         st.rerun()
 
-        # --- TAB 2: MASTER LOG (WITH DUAL EDIT/DELETE) ---
+        # --- TAB 2: MASTER LOG (WITH DUAL EDIT/DELETE OPTION) ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -103,43 +104,51 @@ if selected_user != "Select" and input_pass:
                 else:
                     view_df = df_samples[df_samples['userid'] == selected_user]
                 
-                # Show main log table
                 st.dataframe(view_df.sort_values('timestamp', ascending=False) if 'timestamp' in view_df.columns else view_df, use_container_width=True)
                 
                 # Download Button
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download Log (CSV)", csv, "freezer_log.csv", "text/csv")
 
-                # --- ADMIN DUAL OPTION: EDIT OR DELETE ---
+                # --- THE DUAL ADMIN OPTION SECTION ---
                 if is_admin and not view_df.empty:
                     st.markdown("---")
-                    st.subheader("⚙️ Admin Management (Edit or Delete)")
+                    st.subheader("⚙️ Manage Entry (Edit or Delete)")
+                    
                     manage_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
-                    selected_entry = st.selectbox("Select entry to modify or remove", ["Select"] + manage_options)
+                    selected_entry = st.selectbox("Select an entry to manage", ["Select"] + manage_options)
                     
                     if selected_entry != "Select":
                         idx = manage_options.index(selected_entry)
-                        target = view_df.iloc[idx - 1]
+                        target_row = view_df.iloc[idx - 1]
                         
-                        col_edit, col_del = st.columns(2)
+                        col_edit, col_del = st.columns([2, 1])
                         
-                        # OPTION A: EDIT
+                        # OPTION A: EDIT DETAILS
                         with col_edit:
-                            st.write("**Option 1: Edit Details**")
-                            with st.form("edit_form"):
-                                new_box = st.text_input("Update Box ID", value=target['box_id'])
-                                new_count = st.number_input("Update Box Count", value=int(target['box_count']), min_value=1)
+                            with st.form("admin_edit_entry"):
+                                st.write("**✏️ Edit Details**")
+                                edit_box = st.text_input("Box ID", value=target_row['box_id'])
+                                edit_count = st.number_input("Box Count", value=int(target_row['box_count']), min_value=1)
+                                edit_type = st.text_input("Sample Type", value=target_row['sample_type'] if 'sample_type' in target_row else "")
+                                
                                 if st.form_submit_button("Save Changes"):
-                                    conn.table("samples").update({"box_id": new_box, "box_count": new_count}).eq("timestamp", target['timestamp']).eq("userid", target['userid']).execute()
+                                    conn.table("samples").update({
+                                        "box_id": edit_box, 
+                                        "box_count": edit_count,
+                                        "sample_type": edit_type
+                                    }).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                    st.cache_resource.clear()
                                     st.success("Entry Updated!")
                                     st.rerun()
 
-                        # OPTION B: DELETE
+                        # OPTION B: DELETE ENTRY
                         with col_del:
-                            st.write("**Option 2: Permanent Removal**")
-                            st.warning(f"Deleting Box: {target['box_id']}")
-                            if st.button("🗑️ Confirm Delete"):
-                                conn.table("samples").delete().eq("timestamp", target['timestamp']).eq("userid", target['userid']).execute()
+                            st.write("**🗑️ Delete Entry**")
+                            st.error("Caution: This cannot be undone.")
+                            if st.button("Confirm Permanent Deletion"):
+                                conn.table("samples").delete().eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                st.cache_resource.clear()
                                 st.warning("Entry Removed!")
                                 st.rerun()
             else:
@@ -169,4 +178,4 @@ for _ in range(15): st.sidebar.write("")
 with st.sidebar.popover("Help"):
     h_user = st.text_input("User ID", key="help_id")
     if h_user:
-        st.markdown(f'<a href="mailto:biochem@manipal.edu?body=User:{h_user}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Support Support</a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="mailto:biochem@manipal.edu?body=User:{h_user}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Email Support</a>', unsafe_allow_html=True)
