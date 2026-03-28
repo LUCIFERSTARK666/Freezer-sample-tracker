@@ -97,9 +97,7 @@ if selected_user != "Select" and input_pass:
 
             with st.form("entry_form", clear_on_submit=True):
                 st.markdown("##### Details")
-                col_a, col_b = st.columns(2)
-                u_email = col_a.text_input("Your Email ID")
-                u_phone = col_b.text_input("Your Phone Number")
+                u_email = st.text_input("Your Email ID")
                 b_guide = st.text_input("Guide Name (Biochemistry)")
                 s_type = st.text_input("Sample Type")
                 box_id = st.text_input("Box ID / Label (Required)")
@@ -109,19 +107,18 @@ if selected_user != "Select" and input_pass:
                     if box_id and b_guide:
                         log_data = {
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                            "userid": selected_user, "email": u_email, "phone": u_phone,
+                            "userid": selected_user, "email": u_email,
                             "biochem_guide": b_guide, "freezer": f_type, "unit": u_name,
                             "sample_type": s_type, "box_id": box_id, "box_count": int(count)
                         }
                         conn.table("samples").insert(log_data).execute()
                         st.cache_resource.clear()
                         st.success(f"Saved to {u_name}!")
-                        st.balloons()
                         st.rerun()
                     else:
                         st.error("Missing required fields.")
 
-        # --- TAB 2: MASTER LOG ---
+        # --- TAB 2: MASTER LOG (With Edit & Delete) ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -139,6 +136,39 @@ if selected_user != "Select" and input_pass:
                 st.dataframe(view_df.sort_values('timestamp', ascending=False), use_container_width=True)
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button(label="📥 Download CSV", data=csv, file_name="freezer_log.csv", mime="text/csv")
+                
+                # --- ADMIN MANAGEMENT SECTION ---
+                if is_admin and not view_df.empty:
+                    st.markdown("---")
+                    st.subheader("✏️ Manage Entry (Edit/Delete)")
+                    # Create unique labels for selection
+                    edit_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
+                    selected_manage = st.selectbox("Select entry to modify or remove", ["Select"] + edit_options)
+                    
+                    if selected_manage != "Select":
+                        idx = edit_options.index(selected_manage)
+                        target_row = view_df.iloc[idx - 1]
+                        
+                        col_edit, col_del = st.columns([2, 1])
+                        
+                        with col_edit:
+                            with st.form("edit_form_master"):
+                                st.write("**Update Details**")
+                                e_box = st.text_input("New Box ID", value=target_row['box_id'])
+                                e_count = st.number_input("New Box Count", value=int(target_row['box_count']), min_value=1)
+                                if st.form_submit_button("Update Entry"):
+                                    conn.table("samples").update({"box_id": e_box, "box_count": e_count}).eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                    st.cache_resource.clear()
+                                    st.success("Updated Successfully!")
+                                    st.rerun()
+                                    
+                        with col_del:
+                            st.write("**Danger Zone**")
+                            if st.button("🗑️ Delete Entry Permanently"):
+                                conn.table("samples").delete().eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
+                                st.cache_resource.clear()
+                                st.warning("Entry Deleted!")
+                                st.rerun()
             else:
                 st.info("No data available.")
 
@@ -189,16 +219,13 @@ if selected_user != "Select" and input_pass:
 else:
     st.info("Please select your User ID in the sidebar.")
 
-# --- 4. STICKY BOTTOM HELP BUTTON ---
+# --- HELP POPOVER ---
 st.sidebar.markdown("---")
-for _ in range(15): st.sidebar.write("") # Push help to bottom
-
+for _ in range(15): st.sidebar.write("") 
 with st.sidebar.popover("Help"):
-    st.markdown("### Support & Queries")
-    help_user_id = st.text_input("Enter User ID", placeholder="e.g. PhD_Student_01", key="help_id_input")
-    if help_user_id:
+    st.markdown("### Support")
+    h_user_id = st.text_input("Enter User ID", placeholder="PhD_User_01", key="help_id_input")
+    if h_user_id:
         h_email = "biochem@manipal.edu"
-        body = f"Hello,%0AI am facing an issue.%0AUser ID: {help_user_id}"
-        st.markdown(f'<a href="mailto:{h_email}?subject=Support&body={body}" style="display:inline-block;padding:0.5em 1em;color:white;background-color:#4f8bf9;border-radius:0.5rem;text-decoration:none;font-weight:bold;width:100%;text-align:center;">📧 Email Support</a>', unsafe_allow_html=True)
-    else:
-        st.caption("Provide your ID above to enable the email button.")
+        body = f"Hello,%0AI am facing an issue.%0AUser ID: {h_user_id}"
+        st.markdown(f'<a href="mailto:{h_email}?subject=Support&body={body}" style="display:inline-block;padding:10px;color:white;background-color:#4f8bf9;border-radius:5px;text-decoration:none;font-weight:bold;width:100%;text-align:center;">📧 Email Support</a>', unsafe_allow_html=True)
