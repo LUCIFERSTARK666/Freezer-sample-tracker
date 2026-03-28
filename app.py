@@ -4,7 +4,7 @@ from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP & KMC LOGO ---
-st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
+st.set_page_config(page_title="Freezer Manager", layout="wide")
 
 # Centering the Logo at the top
 LOGO_URL = "https://cdn-prod.mybharats.in/organization/DL-ns-d9cbe78f-d9b2-4e20-baf0-e0747653f0bd_kmclogo.jpg"
@@ -13,7 +13,7 @@ col_logo_1, col_logo_2, col_logo_3 = st.columns([2, 2, 2])
 with col_logo_2:
     st.image(LOGO_URL, width=350)
 
-st.markdown("<h1 style='text-align: center;'>Biochemistry Freezer Management System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Freezer Management System</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-weight: bold;'>Department of Biochemistry | Kasturba Medical College, Manipal</p>", unsafe_allow_html=True)
 st.markdown("---")
 
