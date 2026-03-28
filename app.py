@@ -4,7 +4,7 @@ from supabase import create_client
 from datetime import datetime
 
 # --- 1. PAGE SETUP ---
-st.set_page_config(page_title="Biochemistry Freezer Manager", layout="wide")
+st.set_page_config(page_title="Freezer Manager", layout="wide")
 st.title("Freezer Management System")
 
 # --- 2. DATABASE CONNECTION ---
