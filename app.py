@@ -26,7 +26,7 @@ def init_connection():
 
 conn = init_connection()
 
-# --- 3. DATA FETCHING (INCLUDING UNIQUE ID & USER DATA) ---
+# --- 3. DATA FETCHING ---
 def get_users():
     try:
         res = conn.table("users").select("*").execute()
@@ -57,7 +57,6 @@ if selected_user != "Select" and input_pass:
     if is_admin or is_valid_user:
         st.sidebar.success(f"Verified: {selected_user}")
         
-        # --- RESTORED: SIDEBAR GUIDE & DAYS REMAINING ---
         if not is_admin:
             u_row = user_data.iloc[0]
             st.sidebar.markdown("---")
@@ -95,7 +94,7 @@ if selected_user != "Select" and input_pass:
                 s_type = st.text_input("Sample Type")
                 box_id = st.text_input("Box ID / Label (Required)")
                 count = st.number_input("Total Number of Boxes", min_value=1, step=1)
-                if st.form_submit_button("Submit to Cloud"):
+                if st.form_submit_button("Submit"):
                     if box_id and b_guide:
                         log_data = {"timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "userid": selected_user, "email": u_email, "phone": u_phone, "biochem_guide": b_guide, "freezer": f_type, "unit": u_name, "sample_type": s_type, "box_id": box_id, "box_count": int(count)}
                         conn.table("samples").insert(log_data).execute()
@@ -104,7 +103,7 @@ if selected_user != "Select" and input_pass:
                         st.rerun()
                     else: st.error("Missing required fields.")
 
-        # --- TAB 2: MASTER LOG (EDIT/DELETE) ---
+        # --- TAB 2: MASTER LOG ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -115,6 +114,7 @@ if selected_user != "Select" and input_pass:
                 st.dataframe(view_df.drop(columns=['id'], errors='ignore').sort_values('timestamp', ascending=False), use_container_width=True)
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download CSV", csv, "freezer_log.csv", "text/csv")
+                
                 if is_admin:
                     st.markdown("---")
                     st.subheader("⚙️ Manage Entries (Admin Only)")
@@ -153,24 +153,46 @@ if selected_user != "Select" and input_pass:
                     with c_l: st.bar_chart(all_d.groupby('freezer')['box_count'].sum())
                     with c_r: st.bar_chart(all_d.groupby('userid')['box_count'].sum())
 
-        # --- TAB 4: ADMIN PANEL (USER AUTH) ---
+        # --- TAB 4: ADMIN PANEL (WITH NEW EXPIRY DATE UPDATE FEATURE) ---
         if is_admin:
             with tab4:
                 st.subheader("👤 User Management")
-                c_add, c_rem = st.columns(2)
+                c_add, c_manage = st.columns(2)
                 with c_add:
+                    st.markdown("##### Authorize New Student")
                     with st.form("auth"):
                         n_id, n_pw, n_gd, n_ex = st.text_input("User ID"), st.text_input("Pass"), st.text_input("Guide"), st.date_input("Expiry")
                         if st.form_submit_button("Authorize"):
                             conn.table("users").upsert({"userid": n_id, "password": n_pw, "guide_name": n_gd, "last_date": str(n_ex)}).execute()
                             st.cache_resource.clear()
                             st.rerun()
-                with c_rem:
-                    to_rem = st.selectbox("Select User to Remove", ["Select"] + [u for u in USER_LIST if u != "Admin"])
-                    if to_rem != "Select" and st.button("Confirm Removal"):
-                        conn.table("users").delete().eq("userid", to_rem).execute()
-                        st.cache_resource.clear()
-                        st.rerun()
+                
+                with c_manage:
+                    st.markdown("##### Manage Existing Student")
+                    student_list = [u for u in USER_LIST if u != "Admin"]
+                    to_manage = st.selectbox("Select Student to Update/Remove", ["Select"] + student_list)
+                    
+                    if to_manage != "Select":
+                        # Fetching current student data for context
+                        curr_student = user_df[user_df['userid'] == to_manage].iloc[0]
+                        st.info(f"Current Expiry: {curr_student['last_date']}")
+                        
+                        new_expiry = st.date_input("Set New Storage Expiry Date", key="extend_date")
+                        
+                        col_up, col_rm = st.columns(2)
+                        if col_up.button("📅 Update Expiry Date"):
+                            conn.table("users").update({"last_date": str(new_expiry)}).eq("userid", to_manage).execute()
+                            st.cache_resource.clear()
+                            st.success(f"Expiry Updated for {to_manage}!")
+                            st.rerun()
+                            
+                        if col_rm.button("🗑️ Remove User Access"):
+                            conn.table("users").delete().eq("userid", to_rem).execute()
+                            st.cache_resource.clear()
+                            st.rerun()
+
+                st.markdown("---")
+                st.write("**Currently Authorized Users:**")
                 st.table(user_df[['userid', 'guide_name', 'last_date']])
 
     else: st.sidebar.error("Invalid credentials.")
