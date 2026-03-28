@@ -27,7 +27,7 @@ def init_connection():
 
 conn = init_connection()
 
-# --- 3. DATA FETCHING ---
+# --- 3. DATA FETCHING (NO DATA LOSS LOGIC) ---
 def get_users():
     try:
         res = conn.table("users").select("*").execute()
@@ -63,7 +63,7 @@ if selected_user != "Select" and input_pass:
         
         # Tabs Logic
         if is_admin:
-            tab1, tab2, tab3, tab4 = st.tabs(["📥 Log Sample", "📋 Master Log", "📊 Analytics", "⚙️ Admin Panel"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📥 Log Sample", "📋 Master Log", "📊 Analytics", "👤 Admin Panel"])
         else:
             tab1, tab2 = st.tabs(["📥 Log Sample", "📋 My History"])
 
@@ -95,7 +95,7 @@ if selected_user != "Select" and input_pass:
                         st.success("Entry Saved Successfully!")
                         st.rerun()
 
-        # --- TAB 2: MASTER LOG (EDIT ALL DETAILS & DELETE) ---
+        # --- TAB 2: MASTER LOG (EDIT ALL & DELETE) ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -116,12 +116,12 @@ if selected_user != "Select" and input_pass:
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download Log (CSV)", csv, "freezer_log.csv", "text/csv")
 
-                # --- ADMIN MANAGE: EDIT & DELETE ---
+                # --- ADMIN MANAGE: EDIT ALL & DELETE ---
                 if is_admin and not view_df.empty:
                     st.markdown("---")
                     st.subheader("⚙️ Manage Entries (Admin Only)")
                     manage_options = [f"{r['userid']} | {r['box_id']} | {r['timestamp']}" for _, r in view_df.iterrows()]
-                    selected_entry = st.selectbox("Select entry to modify/remove", ["Select"] + manage_options)
+                    selected_entry = st.selectbox("Select entry to modify or remove", ["Select"] + manage_options)
                     
                     if selected_entry != "Select":
                         idx = manage_options.index(selected_entry)
@@ -129,7 +129,7 @@ if selected_user != "Select" and input_pass:
                         
                         col_edit, col_del = st.columns([2, 1])
                         with col_edit:
-                            with st.form("admin_edit_full_form"):
+                            with st.form("admin_edit_full_details"):
                                 st.write("**✏️ Edit All Details**")
                                 e_box = st.text_input("Box ID", value=target_row['box_id'])
                                 e_count = st.number_input("Box Count", value=int(target_row['box_count']), min_value=1)
@@ -146,19 +146,18 @@ if selected_user != "Select" and input_pass:
                                     st.rerun()
                         
                         with col_del:
-                            st.write("**🗑️ Remove Record**")
-                            st.error("Caution: Permanent Deletion")
+                            st.write("**🗑️ Delete Record**")
                             if st.button("Confirm Delete Permanently"):
                                 conn.table("samples").delete().eq("timestamp", target_row['timestamp']).eq("userid", target_row['userid']).execute()
                                 st.cache_resource.clear()
                                 st.rerun()
 
-        # --- TAB 3: ANALYTICS (USER & FREEZER) ---
+        # --- TAB 3: ANALYTICS (USER, FREEZER & TOTALS) ---
         if is_admin:
             with tab3:
                 all_data = get_samples()
                 if not all_data.empty:
-                    st.subheader("📊 Freezer Occupancy & Totals")
+                    st.subheader("📊 Freezer Occupancy Summary")
                     m1, m2, m3 = st.columns(3)
                     m1.metric("Boxes (-80°C)", int(all_data[all_data['freezer'] == "-80 Freezer"]['box_count'].sum()))
                     m2.metric("Boxes (-20°C)", int(all_data[all_data['freezer'] == "-20 Freezer"]['box_count'].sum()))
@@ -167,10 +166,10 @@ if selected_user != "Select" and input_pass:
                     st.markdown("---")
                     c_left, c_right = st.columns(2)
                     with c_left:
-                        st.write("**By Freezer Type**")
+                        st.write("**Total Occupancy by Freezer**")
                         st.bar_chart(all_data.groupby('freezer')['box_count'].sum())
                     with c_right:
-                        st.write("**By User Distribution**")
+                        st.write("**Storage Distribution by User**")
                         st.bar_chart(all_data.groupby('userid')['box_count'].sum())
 
         # --- TAB 4: ADMIN PANEL (USER AUTHORIZATION) ---
@@ -180,8 +179,8 @@ if selected_user != "Select" and input_pass:
                 col_add, col_rem = st.columns(2)
                 with col_add:
                     st.markdown("##### Authorize/Update Student")
-                    with st.form("auth_student_form"):
-                        n_id = st.text_input("User ID")
+                    with st.form("auth_student_final"):
+                        n_id = st.text_input("Student User ID")
                         n_pw = st.text_input("Password")
                         n_gd = st.text_input("Primary Guide")
                         n_ex = st.date_input("Expiry Date")
@@ -207,7 +206,7 @@ st.sidebar.markdown("---")
 for _ in range(15): st.sidebar.write("")
 with st.sidebar.popover("Help"):
     st.write("### Support")
-    h_uid = st.text_input("Enter User ID", key="help_uid_input")
+    h_uid = st.text_input("Enter User ID", key="help_uid_final")
     if h_uid:
         subject = urllib.parse.quote(f"Freezer storage issue _ {h_uid}")
         body = urllib.parse.quote(f"Hello Team,\n\nI am facing an issue with the freezer storage system. My User ID is {h_uid}.\n\nDetails of the problem:\n")
