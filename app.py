@@ -226,4 +226,6 @@ with st.sidebar.popover("Help"):
     if h_uid:
         subj = urllib.parse.quote(f"Freezer storage issue _ {h_uid}")
         body = urllib.parse.quote(f"Hello Team,\n\nI am facing an issue. My User ID is {h_uid}.\n")
-        st.markdown(f'<a href="mailto:biochem@manipal.edu?subject={subj}&body={body}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Support Email</a>', unsafe_allow_html=True)
+        
+        # UPDATE THIS LINE BELOW:
+        st.markdown(f'<a href="mailto:biochem@manipal.edu?cc=vinutha.bhat@manipal.edu&subject={subj}&body={body}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Support Email</a>', unsafe_allow_html=True)
