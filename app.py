@@ -140,7 +140,7 @@ if selected_user != "Select" and input_pass:
                                 st.rerun()
             else: st.info("No data available.")
 
-        # --- TAB 3: ANALYTICS (SUBSET FEATURE + EMERGENCY ALERT) ---
+        # --- TAB 3: ANALYTICS (FIXED KEYERROR SAFETY) ---
         if is_admin:
             with tab3:
                 all_d = get_samples()
@@ -154,23 +154,24 @@ if selected_user != "Select" and input_pass:
                     
                     st.markdown("---")
                     
-                    # Emergency Broadcast Logic
+                    # Emergency Broadcast with Safety Check
                     with st.expander("🚨 SEND EMERGENCY ALERT TO ALL USERS"):
-                        # Collecting student emails from the user_df
-                        student_emails = user_df[user_df['userid'] != 'Admin']['email'].dropna().unique().tolist()
-                        email_list_string = ",".join(student_emails)
-                        
-                        e_subj = st.text_input("Alert Subject", value="URGENT: KMC Biochemistry Freezer Emergency")
-                        e_body = st.text_area("Message Content", value="Dear Researcher,\n\nThis is an urgent notification regarding the departmental freezer units. Please check your samples immediately.")
-                        
-                        if email_list_string:
-                            q_subj = urllib.parse.quote(e_subj)
-                            q_body = urllib.parse.quote(e_body)
-                            # Using BCC for privacy and CC'ing the support emails
-                            broadcast_link = f"mailto:biochem@manipal.edu?cc=vinutha.bhat@manipal.edu&bcc={email_list_string}&subject={q_subj}&body={q_body}"
-                            st.markdown(f'<a href="{broadcast_link}" target="_blank" style="display:block;padding:12px;background:#FF4B4B;color:white;text-align:center;border-radius:10px;text-decoration:none;font-weight:bold;">📧 Draft Broadcast Email to {len(student_emails)} Students</a>', unsafe_allow_html=True)
+                        if 'email' in user_df.columns:
+                            student_emails = user_df[user_df['userid'] != 'Admin']['email'].dropna().unique().tolist()
+                            email_list_string = ",".join(student_emails)
+                            
+                            e_subj = st.text_input("Alert Subject", value="URGENT: KMC Biochemistry Freezer Emergency")
+                            e_body = st.text_area("Message Content", value="Dear Researcher,\n\nThis is an urgent notification regarding the departmental freezer units. Please check your samples immediately.")
+                            
+                            if email_list_string:
+                                q_subj = urllib.parse.quote(e_subj)
+                                q_body = urllib.parse.quote(e_body)
+                                broadcast_link = f"mailto:biochem@manipal.edu?cc=vinutha.bhat@manipal.edu&bcc={email_list_string}&subject={q_subj}&body={q_body}"
+                                st.markdown(f'<a href="{broadcast_link}" target="_blank" style="display:block;padding:12px;background:#FF4B4B;color:white;text-align:center;border-radius:10px;text-decoration:none;font-weight:bold;">📧 Draft Broadcast Email to {len(student_emails)} Students</a>', unsafe_allow_html=True)
+                            else:
+                                st.warning("No emails found in user database.")
                         else:
-                            st.warning("No emails found in user database.")
+                            st.error("Email column not found. Please ensure you have added 'email' to your Supabase users table.")
 
                     st.markdown("---")
                     col_l, col_r = st.columns(2)
@@ -192,7 +193,7 @@ if selected_user != "Select" and input_pass:
                             st.bar_chart(df_20.groupby('userid')['box_count'].sum())
                 else: st.info("No data available.")
 
-        # --- TAB 4: ADMIN PANEL (NAME, EMAIL, PHONE FIELDS ADDED) ---
+        # --- TAB 4: ADMIN PANEL (FIXED NAMEERROR) ---
         if is_admin:
             with tab4:
                 st.subheader("👤 User Management")
@@ -231,13 +232,16 @@ if selected_user != "Select" and input_pass:
                             st.success(f"Expiry Updated!")
                             st.rerun()
                         if col_rm.button("🗑️ Remove User Access"):
+                            # FIX: Corrected variable from to_rem to to_manage
                             conn.table("users").delete().eq("userid", to_manage).execute()
                             st.cache_resource.clear()
                             st.rerun()
 
                 st.markdown("---")
                 st.write("**Currently Authorized Users:**")
-                st.table(user_df[['userid', 'name', 'guide_name', 'last_date']])
+                # Safety check for table display
+                cols_to_show = [c for c in ['userid', 'name', 'guide_name', 'last_date'] if c in user_df.columns]
+                st.table(user_df[cols_to_show])
 
     else: st.sidebar.error("Invalid credentials.")
 else: st.info("Please login in the sidebar.")
@@ -250,5 +254,4 @@ with st.sidebar.popover("Help"):
     if h_uid:
         subj = urllib.parse.quote(f"Freezer storage issue _ {h_uid}")
         body = urllib.parse.quote(f"Hello Team,\n\nI am facing an issue. My User ID is {h_uid}.\n")
-
         st.markdown(f'<a href="mailto:biochem@manipal.edu?cc=vinutha.bhat@manipal.edu&subject={subj}&body={body}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Support Email</a>', unsafe_allow_html=True)
