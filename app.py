@@ -35,7 +35,6 @@ def get_users():
         return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date"])
 
 def get_samples():
-    # We remove the cache decorator here to ensure fresh data on every rerun
     try:
         res = conn.table("samples").select("*").execute()
         return pd.DataFrame(res.data)
@@ -104,7 +103,7 @@ if selected_user != "Select" and input_pass:
                         st.rerun()
                     else: st.error("Missing required fields.")
 
-        # --- TAB 2: MASTER LOG (REFRESH FIX) ---
+        # --- TAB 2: MASTER LOG ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -112,7 +111,6 @@ if selected_user != "Select" and input_pass:
                 if is_admin:
                     sq = st.text_input("Search Logs", "").lower()
                     if sq: view_df = view_df[view_df['userid'].astype(str).str.lower().contains(sq) | view_df['box_id'].astype(str).str.lower().contains(sq)]
-                
                 st.dataframe(view_df.drop(columns=['id'], errors='ignore').sort_values('timestamp', ascending=False), use_container_width=True)
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download CSV", csv, "freezer_log.csv", "text/csv")
@@ -133,9 +131,7 @@ if selected_user != "Select" and input_pass:
                                 e_guide = st.text_input("Guide Name", value=target_row.get('biochem_guide', ""))
                                 if st.form_submit_button("Update Everything"):
                                     conn.table("samples").update({"box_id": e_box, "box_count": e_count, "phone": e_phone, "biochem_guide": e_guide}).eq("id", target_row['id']).execute()
-                                    # Fix: Clear cache AND rerun to force fresh data load
                                     st.cache_resource.clear()
-                                    st.success("Updating Log...")
                                     st.rerun()
                         with c_del:
                             if st.button("🗑️ Delete Entry Permanently"):
@@ -144,18 +140,40 @@ if selected_user != "Select" and input_pass:
                                 st.rerun()
             else: st.info("No data available.")
 
-        # --- TAB 3: ANALYTICS ---
+        # --- TAB 3: ANALYTICS (SUBSET FEATURE ADDED) ---
         if is_admin:
             with tab3:
                 all_d = get_samples()
                 if not all_d.empty:
                     m1, m2, m3 = st.columns(3)
-                    m1.metric("Boxes (-80°C)", int(all_d[all_d['freezer'] == "-80 Freezer"]['box_count'].sum()))
-                    m2.metric("Boxes (-20°C)", int(all_d[all_d['freezer'] == "-20 Freezer"]['box_count'].sum()))
-                    m3.metric("Grand Total", int(all_d['box_count'].sum()))
-                    c_l, c_r = st.columns(2)
-                    with c_l: st.bar_chart(all_d.groupby('freezer')['box_count'].sum())
-                    with c_r: st.bar_chart(all_d.groupby('userid')['box_count'].sum())
+                    c_80 = int(all_d[all_d['freezer'] == "-80 Freezer"]['box_count'].sum())
+                    c_20 = int(all_d[all_d['freezer'] == "-20 Freezer"]['box_count'].sum())
+                    m1.metric("Boxes (-80°C)", c_80)
+                    m2.metric("Boxes (-20°C)", c_20)
+                    m3.metric("Grand Total", c_80 + c_20)
+                    
+                    st.markdown("---")
+                    col_l, col_r = st.columns(2)
+                    
+                    with col_l:
+                        st.markdown("#### 🧊 -80°C Subset Analysis")
+                        df_80 = all_d[all_d['freezer'] == "-80 Freezer"]
+                        if not df_80.empty:
+                            st.write("Usage by Unit Name")
+                            st.bar_chart(df_80.groupby('unit')['box_count'].sum())
+                            st.write("Usage by User")
+                            st.bar_chart(df_80.groupby('userid')['box_count'].sum())
+                    
+                    with col_r:
+                        st.markdown("#### ❄️ -20°C Subset Analysis")
+                        df_20 = all_d[all_d['freezer'] == "-20 Freezer"]
+                        if not df_20.empty:
+                            st.write("Usage by Unit Name")
+                            st.bar_chart(df_20.groupby('unit')['box_count'].sum())
+                            st.write("Usage by User")
+                            st.bar_chart(df_20.groupby('userid')['box_count'].sum())
+                else:
+                    st.info("No data available.")
 
         # --- TAB 4: ADMIN PANEL ---
         if is_admin:
