@@ -32,6 +32,7 @@ def get_users():
         res = conn.table("users").select("*").execute()
         return pd.DataFrame(res.data)
     except:
+        # Fallback columns to prevent app crash
         return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date", "name", "email", "phone"])
 
 def get_samples():
@@ -124,6 +125,7 @@ if selected_user != "Select" and input_pass:
                     
                     st.markdown("---")
                     with st.expander("🚨 EMERGENCY BROADCAST"):
+                        # Added safety check for the 'email' column
                         if 'email' in user_df.columns:
                             emails = user_df[user_df['userid'] != 'Admin']['email'].dropna().unique().tolist()
                             e_list = ",".join(emails)
@@ -132,7 +134,8 @@ if selected_user != "Select" and input_pass:
                                 body = urllib.parse.quote("Please check your samples immediately.")
                                 link = f"mailto:biochem@manipal.edu?bcc={e_list}&subject={subj}&body={body}"
                                 st.markdown(f'<a href="{link}" target="_blank" style="display:block;padding:12px;background:#FF4B4B;color:white;text-align:center;border-radius:10px;text-decoration:none;">Draft Broadcast Email to {len(emails)} Users</a>', unsafe_allow_html=True)
-                        else: st.warning("Database update required (Run SQL).")
+                        else:
+                            st.warning("Database update required. Please run the SQL command in Supabase.")
 
         # --- TAB 4: ADMIN PANEL ---
         if is_admin:
@@ -149,7 +152,6 @@ if selected_user != "Select" and input_pass:
                     n_ex = st.date_input("Expiry")
                     if st.form_submit_button("Authorize"):
                         if n_id and n_name:
-                            # Payload with safety for new columns
                             auth_payload = {"userid": n_id, "password": n_pw, "guide_name": n_gd, "last_date": str(n_ex), "name": n_name, "email": n_email, "phone": n_phone}
                             conn.table("users").upsert(auth_payload).execute()
                             st.cache_resource.clear()
@@ -161,13 +163,13 @@ if selected_user != "Select" and input_pass:
                 student_list = [u for u in USER_LIST if u != "Admin"]
                 to_manage = st.selectbox("Select Student", ["Select"] + student_list)
                 if to_manage != "Select":
-                    # Fix: Corrected variable name mismatch (to_manage instead of to_rem)
+                    # Corrected the variable to 'to_manage' to fix the NameError
                     if st.button("🗑️ Remove Access"):
                         conn.table("users").delete().eq("userid", to_manage).execute()
                         st.cache_resource.clear()
                         st.rerun()
 
-                # Table display check
+                # Safety check for column display
                 cols = [c for c in ['userid', 'name', 'last_date'] if c in user_df.columns]
                 st.table(user_df[cols])
 
