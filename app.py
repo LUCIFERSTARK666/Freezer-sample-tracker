@@ -32,7 +32,7 @@ def get_users():
         res = conn.table("users").select("*").execute()
         return pd.DataFrame(res.data)
     except:
-        return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date"])
+        return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date", "name", "email", "phone"])
 
 def get_samples():
     try:
@@ -140,7 +140,7 @@ if selected_user != "Select" and input_pass:
                                 st.rerun()
             else: st.info("No data available.")
 
-        # --- TAB 3: ANALYTICS (SUBSET FEATURE ADDED) ---
+        # --- TAB 3: ANALYTICS ---
         if is_admin:
             with tab3:
                 all_d = get_samples()
@@ -151,31 +151,23 @@ if selected_user != "Select" and input_pass:
                     m1.metric("Boxes (-80°C)", c_80)
                     m2.metric("Boxes (-20°C)", c_20)
                     m3.metric("Grand Total", c_80 + c_20)
-                    
                     st.markdown("---")
                     col_l, col_r = st.columns(2)
-                    
                     with col_l:
                         st.markdown("#### 🧊 -80°C Subset Analysis")
                         df_80 = all_d[all_d['freezer'] == "-80 Freezer"]
                         if not df_80.empty:
                             st.write("Usage by Unit Name")
                             st.bar_chart(df_80.groupby('unit')['box_count'].sum())
-                            st.write("Usage by User")
-                            st.bar_chart(df_80.groupby('userid')['box_count'].sum())
-                    
                     with col_r:
                         st.markdown("#### ❄️ -20°C Subset Analysis")
                         df_20 = all_d[all_d['freezer'] == "-20 Freezer"]
                         if not df_20.empty:
                             st.write("Usage by Unit Name")
                             st.bar_chart(df_20.groupby('unit')['box_count'].sum())
-                            st.write("Usage by User")
-                            st.bar_chart(df_20.groupby('userid')['box_count'].sum())
-                else:
-                    st.info("No data available.")
+                else: st.info("No data available.")
 
-        # --- TAB 4: ADMIN PANEL ---
+        # --- TAB 4: ADMIN PANEL (UPDATED WITH NAME, EMAIL, PHONE) ---
         if is_admin:
             with tab4:
                 st.subheader("👤 User Management")
@@ -183,29 +175,44 @@ if selected_user != "Select" and input_pass:
                 with c_add:
                     st.markdown("##### Authorize New Student")
                     with st.form("auth"):
-                        n_id, n_pw, n_gd, n_ex = st.text_input("User ID"), st.text_input("Pass"), st.text_input("Guide"), st.date_input("Expiry")
+                        n_id = st.text_input("Login User ID (Unique)")
+                        n_name = st.text_input("Full Name of Student")
+                        n_email = st.text_input("Official Email ID")
+                        n_phone = st.text_input("Phone Number")
+                        n_pw = st.text_input("Login Password")
+                        n_gd = st.text_input("Guide Name")
+                        n_ex = st.date_input("Storage Expiry Date")
                         if st.form_submit_button("Authorize"):
-                            conn.table("users").upsert({"userid": n_id, "password": n_pw, "guide_name": n_gd, "last_date": str(n_ex)}).execute()
-                            st.cache_resource.clear()
-                            st.rerun()
+                            if n_id and n_name:
+                                auth_payload = {
+                                    "userid": n_id, 
+                                    "password": n_pw, 
+                                    "guide_name": n_gd, 
+                                    "last_date": str(n_ex),
+                                    "name": n_name,
+                                    "email": n_email,
+                                    "phone": n_phone
+                                }
+                                conn.table("users").upsert(auth_payload).execute()
+                                st.cache_resource.clear()
+                                st.success(f"Authorized: {n_name}")
+                                st.rerun()
+                            else: st.error("User ID and Name are required.")
                 
                 with c_manage:
                     st.markdown("##### Manage Existing Student")
                     student_list = [u for u in USER_LIST if u != "Admin"]
                     to_manage = st.selectbox("Select Student to Update/Remove", ["Select"] + student_list)
-                    
                     if to_manage != "Select":
                         curr_student = user_df[user_df['userid'] == to_manage].iloc[0]
-                        st.info(f"Current Expiry: {curr_student['last_date']}")
+                        st.info(f"Currently: {curr_student.get('name', to_manage)} | Expiry: {curr_student['last_date']}")
                         new_expiry = st.date_input("Set New Storage Expiry Date", key="extend_date")
-                        
                         col_up, col_rm = st.columns(2)
                         if col_up.button("📅 Update Expiry Date"):
                             conn.table("users").update({"last_date": str(new_expiry)}).eq("userid", to_manage).execute()
                             st.cache_resource.clear()
                             st.success(f"Expiry Updated for {to_manage}!")
                             st.rerun()
-                            
                         if col_rm.button("🗑️ Remove User Access"):
                             conn.table("users").delete().eq("userid", to_manage).execute()
                             st.cache_resource.clear()
@@ -213,7 +220,9 @@ if selected_user != "Select" and input_pass:
 
                 st.markdown("---")
                 st.write("**Currently Authorized Users:**")
-                st.table(user_df[['userid', 'guide_name', 'last_date']])
+                # Show full details in the admin table
+                display_cols = ['userid', 'name', 'guide_name', 'email', 'phone', 'last_date']
+                st.table(user_df[[c for c in display_cols if c in user_df.columns]])
 
     else: st.sidebar.error("Invalid credentials.")
 else: st.info("Please login in the sidebar.")
@@ -226,6 +235,4 @@ with st.sidebar.popover("Help"):
     if h_uid:
         subj = urllib.parse.quote(f"Freezer storage issue _ {h_uid}")
         body = urllib.parse.quote(f"Hello Team,\n\nI am facing an issue. My User ID is {h_uid}.\n")
-        
-        # UPDATE THIS LINE BELOW:
         st.markdown(f'<a href="mailto:biochem@manipal.edu?cc=vinutha.bhat@manipal.edu&subject={subj}&body={body}" style="display:block;padding:10px;background:#4f8bf9;color:white;text-align:center;border-radius:5px;text-decoration:none;">📧 Support Email</a>', unsafe_allow_html=True)
