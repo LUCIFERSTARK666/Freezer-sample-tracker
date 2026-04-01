@@ -153,7 +153,7 @@ if selected_user != "Select" and input_pass:
                     with c_l: st.bar_chart(all_d.groupby('freezer')['box_count'].sum())
                     with c_r: st.bar_chart(all_d.groupby('userid')['box_count'].sum())
 
-        # --- TAB 4: ADMIN PANEL (WITH NEW EXPIRY DATE UPDATE FEATURE) ---
+        # --- TAB 4: ADMIN PANEL ---
         if is_admin:
             with tab4:
                 st.subheader("👤 User Management")
@@ -173,10 +173,8 @@ if selected_user != "Select" and input_pass:
                     to_manage = st.selectbox("Select Student to Update/Remove", ["Select"] + student_list)
                     
                     if to_manage != "Select":
-                        # Fetching current student data for context
                         curr_student = user_df[user_df['userid'] == to_manage].iloc[0]
                         st.info(f"Current Expiry: {curr_student['last_date']}")
-                        
                         new_expiry = st.date_input("Set New Storage Expiry Date", key="extend_date")
                         
                         col_up, col_rm = st.columns(2)
@@ -187,7 +185,8 @@ if selected_user != "Select" and input_pass:
                             st.rerun()
                             
                         if col_rm.button("🗑️ Remove User Access"):
-                            conn.table("users").delete().eq("userid", to_rem).execute()
+                            # FIX: Changed to_rem to to_manage to prevent NameError
+                            conn.table("users").delete().eq("userid", to_manage).execute()
                             st.cache_resource.clear()
                             st.rerun()
 
