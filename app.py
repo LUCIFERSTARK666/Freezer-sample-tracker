@@ -35,6 +35,7 @@ def get_users():
         return pd.DataFrame(columns=["userid", "password", "guide_name", "last_date"])
 
 def get_samples():
+    # We remove the cache decorator here to ensure fresh data on every rerun
     try:
         res = conn.table("samples").select("*").execute()
         return pd.DataFrame(res.data)
@@ -103,7 +104,7 @@ if selected_user != "Select" and input_pass:
                         st.rerun()
                     else: st.error("Missing required fields.")
 
-        # --- TAB 2: MASTER LOG ---
+        # --- TAB 2: MASTER LOG (REFRESH FIX) ---
         with tab2:
             df_samples = get_samples()
             if not df_samples.empty:
@@ -111,6 +112,7 @@ if selected_user != "Select" and input_pass:
                 if is_admin:
                     sq = st.text_input("Search Logs", "").lower()
                     if sq: view_df = view_df[view_df['userid'].astype(str).str.lower().contains(sq) | view_df['box_id'].astype(str).str.lower().contains(sq)]
+                
                 st.dataframe(view_df.drop(columns=['id'], errors='ignore').sort_values('timestamp', ascending=False), use_container_width=True)
                 csv = view_df.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Download CSV", csv, "freezer_log.csv", "text/csv")
@@ -131,7 +133,9 @@ if selected_user != "Select" and input_pass:
                                 e_guide = st.text_input("Guide Name", value=target_row.get('biochem_guide', ""))
                                 if st.form_submit_button("Update Everything"):
                                     conn.table("samples").update({"box_id": e_box, "box_count": e_count, "phone": e_phone, "biochem_guide": e_guide}).eq("id", target_row['id']).execute()
+                                    # Fix: Clear cache AND rerun to force fresh data load
                                     st.cache_resource.clear()
+                                    st.success("Updating Log...")
                                     st.rerun()
                         with c_del:
                             if st.button("🗑️ Delete Entry Permanently"):
@@ -185,7 +189,6 @@ if selected_user != "Select" and input_pass:
                             st.rerun()
                             
                         if col_rm.button("🗑️ Remove User Access"):
-                            # FIX: Changed to_rem to to_manage to prevent NameError
                             conn.table("users").delete().eq("userid", to_manage).execute()
                             st.cache_resource.clear()
                             st.rerun()
